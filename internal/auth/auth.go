@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/vovaki-coger/al-royter/internal/config"
+	"github.com/vovaki-coger/al-royter/internal/shared"
 	"github.com/vovaki-coger/al-royter/internal/storage"
 )
 
@@ -159,12 +160,12 @@ const (
 	claimsContextKey contextKey = "claims"
 )
 
-func WithUser(ctx context.Context, user *storage.User) context.Context {
+func WithUser(ctx context.Context, user *shared.User) context.Context {
 	return context.WithValue(ctx, userContextKey, user)
 }
 
-func GetUser(ctx context.Context) *storage.User {
-	if u, ok := ctx.Value(userContextKey).(*storage.User); ok {
+func GetUser(ctx context.Context) *shared.User {
+	if u, ok := ctx.Value(userContextKey).(*shared.User); ok {
 		return u
 	}
 	return nil

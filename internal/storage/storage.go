@@ -14,6 +14,7 @@ import (
 
 	"github.com/vovaki-coger/al-royter/internal/models"
 	"github.com/vovaki-coger/al-royter/internal/providers"
+	"github.com/vovaki-coger/al-royter/internal/shared"
 )
 
 type Store struct {
@@ -111,7 +112,7 @@ func (s *Store) CreateUser(email, passwordHash, masterKey, nvidiaKey string) (st
 	return id, err
 }
 
-func (s *Store) GetUserByEmail(email string) (*User, error) {
+func (s *Store) GetUserByEmail(email string) (*shared.User, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -119,7 +120,7 @@ func (s *Store) GetUserByEmail(email string) (*User, error) {
 	return scanUser(row)
 }
 
-func (s *Store) GetUserByMasterKey(masterKey string) (*User, error) {
+func (s *Store) GetUserByMasterKey(masterKey string) (*shared.User, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -127,7 +128,7 @@ func (s *Store) GetUserByMasterKey(masterKey string) (*User, error) {
 	return scanUser(row)
 }
 
-func (s *Store) GetUserByID(id string) (*User, error) {
+func (s *Store) GetUserByID(id string) (*shared.User, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -240,7 +241,7 @@ func (s *Store) CreateSession(userID, token string, expiresAt time.Time) error {
 	return err
 }
 
-func (s *Store) GetSession(token string) (*Session, error) {
+func (s *Store) GetSession(token string) (*shared.Session, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -262,24 +263,8 @@ func (s *Store) CleanExpiredSessions() error {
 	return err
 }
 
-type User struct {
-	ID           string
-	Email        string
-	PasswordHash string
-	MasterKey    string
-	NvidiaKey    string
-	CreatedAt    time.Time
-}
-
-type Session struct {
-	ID        string
-	UserID    string
-	Token     string
-	ExpiresAt time.Time
-}
-
-func scanUser(row *sql.Row) (*User, error) {
-	var u User
+func scanUser(row *sql.Row) (*shared.User, error) {
+	var u shared.User
 	err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.MasterKey, &u.NvidiaKey, &u.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -287,8 +272,8 @@ func scanUser(row *sql.Row) (*User, error) {
 	return &u, err
 }
 
-func scanSession(row *sql.Row) (*Session, error) {
-	var s Session
+func scanSession(row *sql.Row) (*shared.Session, error) {
+	var s shared.Session
 	err := row.Scan(&s.ID, &s.UserID, &s.Token, &s.ExpiresAt)
 	if err == sql.ErrNoRows {
 		return nil, nil

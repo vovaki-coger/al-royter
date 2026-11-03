@@ -6,7 +6,7 @@ WORKDIR /app
 RUN apk add --no-cache git gcc musl-dev sqlite-dev
 
 COPY go.mod ./
-RUN go mod download
+RUN go mod download && go mod tidy
 
 COPY . .
 
