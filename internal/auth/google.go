@@ -56,7 +56,7 @@ func (g *GoogleOAuth) redirectURL(c *gin.Context) string {
 
 func (g *GoogleOAuth) Login(c *gin.Context) {
 	if !g.Enabled() {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Google OAuth not configured"})
+		c.Redirect(http.StatusFound, "/?error=google_disabled")
 		return
 	}
 
