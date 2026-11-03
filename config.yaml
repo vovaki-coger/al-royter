@@ -1,0 +1,56 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  mode: "release"
+
+database:
+  type: "sqlite"
+  path: "./data/al-royter.db"
+
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+
+jwt:
+  secret: "change-me-in-production"
+  expiry_hours: 24
+
+nvidia:
+  api_base: "https://integrate.api.nvidia.com/v1"
+  models_endpoint: "/models"
+
+providers:
+  - name: "opencode"
+    api_base: "https://api.opencode.ai/v1"
+    models_endpoint: "/models"
+    auth_type: "bearer"
+  - name: "deepseek"
+    api_base: "https://api.deepseek.com/v1"
+    models_endpoint: "/models"
+    auth_type: "bearer"
+  - name: "hardness"
+    api_base: "https://api.hardness.ai/v1"
+    models_endpoint: "/models"
+    auth_type: "bearer"
+
+openrouter:
+  config_url: "https://openrouter.ai/settings/keys"
+  docs_url: "https://openrouter.ai/docs"
+  fields:
+    - name: "Name"
+      value: "AL-Router"
+      description: "Название вашего провайдера в OpenRouter"
+    - name: "Base URL"
+      value: "https://YOUR_DOMAIN/v1"
+      description: "Замените YOUR_DOMAIN на ваш домен (например, al-royter.onrender.com)"
+    - name: "API Key"
+      value: "ВАШ_MASTER_KEY"
+      description: "Сгенерированный мастер-ключ из интерфейса AL-Router"
+    - name: "Models"
+      value: "auto"
+      description: "Оставьте 'auto' для автоматического подхвата моделей"
+
+logging:
+  level: "info"
+  format: "json"

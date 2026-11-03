@@ -1,0 +1,30 @@
+# Binaries
+al-royter
+*.exe
+
+# Data
+data/
+*.db
+*.sqlite
+
+# Environment
+.env
+.env.local
+.env.production
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Build
+dist/
+build/

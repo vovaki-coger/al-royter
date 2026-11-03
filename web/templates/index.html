@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AL-Router — Unified AI Gateway</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔀</text></svg>">
+</head>
+<body>
+    <div id="app">
+        <header class="header">
+            <div class="container">
+                <div class="logo">
+                    <span class="logo-icon">🔀</span>
+                    <span class="logo-text">AL-Router</span>
+                </div>
+                <nav class="nav" id="nav">
+                    <a href="#dashboard" class="nav-link active" data-tab="dashboard">Дашборд</a>
+                    <a href="#providers" class="nav-link" data-tab="providers">Провайдеры</a>
+                    <a href="#models" class="nav-link" data-tab="models">Модели</a>
+                    <a href="#openrouter" class="nav-link" data-tab="openrouter">OpenRouter</a>
+                    <a href="#settings" class="nav-link" data-tab="settings">Настройки</a>
+                </nav>
+                <div class="header-actions">
+                    <span class="user-email" id="userEmail"></span>
+                    <button class="btn btn-ghost" id="logoutBtn">Выйти</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="main">
+            <div class="container">
+                <section id="tab-dashboard" class="tab-content active">
+                    <div class="page-header">
+                        <h1>Дашборд</h1>
+                        <p class="subtitle">Управление ключами и моделями в одном месте</p>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <span class="stat-icon">🔑</span>
+                            <div class="stat-info">
+                                <span class="stat-value" id="statKeys">0</span>
+                                <span class="stat-label">API ключей</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">🤖</span>
+                            <div class="stat-info">
+                                <span class="stat-value" id="statModels">0</span>
+                                <span class="stat-label">Моделей доступно</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">⚡</span>
+                            <div class="stat-info">
+                                <span class="stat-value" id="statProviders">0</span>
+                                <span class="stat-label">Активных провайдеров</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">🔀</span>
+                            <div class="stat-info">
+                                <span class="stat-value" id="statMasterKey">—</span>
+                                <span class="stat-label">Мастер-ключ</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="quick-actions">
+                        <h2>Быстрые действия</h2>
+                        <div class="action-buttons">
+                            <button class="btn btn-primary" id="syncModelsBtn">🔄 Синхронизировать модели</button>
+                            <button class="btn btn-secondary" id="copyMasterKeyBtn">📋 Скопировать мастер-ключ</button>
+                            <button class="btn btn-secondary" id="openOpenRouterBtn">🔀 Открыть OpenRouter</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="tab-providers" class="tab-content">
+                    <div class="page-header">
+                        <h1>Провайдеры</h1>
+                        <p class="subtitle">Добавьте API ключи для доступа к моделям</p>
+                    </div>
+                    <div class="providers-grid" id="providersGrid"></div>
+                    <div class="add-provider-form" id="addProviderForm">
+                        <h3>Добавить кастомного провайдера</h3>
+                        <div class="form-row">
+                            <input type="text" id="customProviderName" placeholder="Название (например, my-llm)">
+                            <input type="text" id="customProviderBase" placeholder="Base URL (https://api.example.com/v1)">
+                            <input type="text" id="customProviderKey" placeholder="API Key">
+                            <button class="btn btn-primary" id="addCustomProviderBtn">Добавить</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="tab-models" class="tab-content">
+                    <div class="page-header">
+                        <h1>Доступные модели</h1>
+                        <p class="subtitle">Модели, доступные через ваши ключи</p>
+                    </div>
+                    <div class="models-toolbar">
+                        <input type="text" id="modelSearch" placeholder="🔍 Поиск моделей..." class="search-input">
+                        <select id="modelProviderFilter" class="filter-select">
+                            <option value="">Все провайдеры</option>
+                        </select>
+                    </div>
+                    <div class="models-grid" id="modelsGrid"></div>
+                </section>
+
+                <section id="tab-openrouter" class="tab-content">
+                    <div class="page-header">
+                        <h1>Интеграция с OpenRouter</h1>
+                        <p class="subtitle">Подключите AL-Router к OpenRouter за минуту</p>
+                    </div>
+                    <div class="openrouter-guide">
+                        <div class="guide-step">
+                            <span class="step-number">1</span>
+                            <div class="step-content">
+                                <h3>Откройте настройки OpenRouter</h3>
+                                <a href="https://openrouter.ai/settings/keys" target="_blank" class="btn btn-link">Перейти на OpenRouter →</a>
+                            </div>
+                        </div>
+                        <div class="guide-step">
+                            <span class="step-number">2</span>
+                            <div class="step-content">
+                                <h3>Нажмите "Add Provider" или создайте новый API Key</h3>
+                            </div>
+                        </div>
+                        <div class="guide-step">
+                            <span class="step-number">3</span>
+                            <div class="step-content">
+                                <h3>Заполните поля ниже</h3>
+                                <div class="config-fields" id="openrouterFields"></div>
+                                <button class="btn btn-primary" id="copyAllConfigBtn">📋 Скопировать всё</button>
+                            </div>
+                        </div>
+                        <div class="guide-step">
+                            <span class="step-number">4</span>
+                            <div class="step-content">
+                                <h3>Готово!</h3>
+                                <p>Теперь все ваши модели доступны в OpenRouter через единый ключ AL-Router.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="tab-settings" class="tab-content">
+                    <div class="page-header">
+                        <h1>Настройки</h1>
+                        <p class="subtitle">Управление аккаунтом и NVIDIA ключом</p>
+                    </div>
+                    <div class="settings-grid">
+                        <div class="settings-card">
+                            <h3>🔑 NVIDIA Build API Key</h3>
+                            <p>Вставьте ваш ключ от <a href="https://build.nvidia.com" target="_blank">NVIDIA Build</a> для доступа к их моделям.</p>
+                            <div class="form-group">
+                                <input type="password" id="nvidiaKeyInput" placeholder="nvapi-..." class="form-input">
+                                <button class="btn btn-primary" id="saveNvidiaKeyBtn">Сохранить</button>
+                            </div>
+                            <p class="hint" id="nvidiaKeyStatus"></p>
+                        </div>
+                        <div class="settings-card">
+                            <h3>👤 Аккаунт</h3>
+                            <p>Email: <span id="settingsEmail"></span></p>
+                            <p>Мастер-ключ: <code id="settingsMasterKey"></code></p>
+                            <button class="btn btn-danger" id="deleteAccountBtn">Удалить аккаунт</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <div class="container">
+                <p>AL-Router — Unified AI Gateway for NVIDIA Build & More</p>
+            </div>
+        </footer>
+    </div>
+
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle"></h3>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer" id="modalFooter"></div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

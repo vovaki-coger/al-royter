@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: al-royter
+    runtime: docker
+    repo: https://github.com/vovaki-coger/al-royter
+    plan: free
+    region: oregon
+    branch: main
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: GIN_MODE
+        value: "release"
+      - key: JWT_SECRET
+        generateValue: true
+    healthCheckPath: /v1/health
+    autoDeploy: true
