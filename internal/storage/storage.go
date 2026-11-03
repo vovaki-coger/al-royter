@@ -33,11 +33,24 @@ type DatabaseConfig struct {
 func New(cfg DatabaseConfig) (*Store, error) {
 	if cfg.URL != "" {
 		u := strings.TrimSpace(cfg.URL)
+
+		if isNeonAPIKey(u) {
+			zap.L().Info("DATABASE_URL looks like a Neon API key — resolving connection string automatically")
+			resolved, err := resolveNeonURI(u)
+			if err != nil {
+				zap.L().Error("Failed to resolve Neon connection string, falling back to SQLite", zap.Error(err))
+				return newSQLite(cfg.Path)
+			}
+			u = resolved
+			zap.L().Info("Neon connection string resolved")
+		}
+
 		if !strings.HasPrefix(u, "postgres://") && !strings.HasPrefix(u, "postgresql://") {
 			zap.L().Error("DATABASE_URL is not a Postgres URL — ignoring it and falling back to SQLite. " +
-				"Expected format: postgresql://user:pass@host/db?sslmode=require")
+				"Expected: postgresql://user:pass@host/db?sslmode=require, or a Neon API key (napi_...)")
 			return newSQLite(cfg.Path)
 		}
+
 		pg, err := newPostgres(u)
 		if err != nil {
 			zap.L().Error("Postgres unavailable, falling back to SQLite (data will NOT persist on Render)", zap.Error(err))
