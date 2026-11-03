@@ -6,6 +6,7 @@ server:
 database:
   type: "sqlite"
   path: "./data/al-royter.db"
+  url: ""
 
 redis:
   addr: "localhost:6379"

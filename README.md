@@ -79,6 +79,23 @@ Authorization: Bearer YOUR_MASTER_KEY
 
 Формат: `provider/model-id` (например: `nvidia/nemotron-3-ultra`, `deepseek/deepseek-chat`, `opencode/gpt-4`)
 
+## База данных
+
+На Render диск временный — без внешней БД аккаунты и ключи стираются при каждом деплое.
+
+### Neon (бесплатно навсегда, рекомендуем)
+
+1. [neon.tech](https://neon.tech) → регистрация → **Create project**
+2. Скопируй **Connection string** (выглядит как `postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require`)
+3. Render → Environment → добавь `DATABASE_URL` = эта строка
+4. Redeploy
+
+Схема создастся сама при старте. Если `DATABASE_URL` не задан — используется локальный SQLite (только для разработки).
+
+### Альтернативы
+- **Supabase** — free Postgres 500 МБ
+- **Render PostgreSQL** — только платно (free-план истекает через 90 дней)
+
 ## Вход через Google
 
 Кнопка «Продолжить с Google» на экране входа. Чтобы включить:
@@ -148,6 +165,7 @@ al-royter/
 | `PORT` | Порт сервера | `8080` |
 | `HOST` | Хост | `0.0.0.0` |
 | `JWT_SECRET` | Секрет для JWT | **обязательно** |
+| `DATABASE_URL` | Postgres DSN (Neon/Supabase) | нет (тогда SQLite) |
 | `GOOGLE_CLIENT_ID` | Google OAuth Client ID | нет |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth Secret | нет |
 | `GOOGLE_REDIRECT_URL` | Redirect URI (по умолчанию авто) | нет |

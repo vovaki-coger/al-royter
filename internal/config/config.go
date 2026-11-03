@@ -27,6 +27,7 @@ type ServerConfig struct {
 type DatabaseConfig struct {
 	Type string `yaml:"type"`
 	Path string `yaml:"path"`
+	URL  string `yaml:"url"`
 }
 
 type RedisConfig struct {
@@ -103,6 +104,9 @@ func Load(path string) (*Config, error) {
 	}
 	if ru := os.Getenv("GOOGLE_REDIRECT_URL"); ru != "" {
 		cfg.Google.RedirectURL = ru
+	}
+	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
+		cfg.Database.URL = dbURL
 	}
 
 	return cfg, nil

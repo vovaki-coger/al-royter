@@ -51,6 +51,7 @@ func main() {
 	store, err := storage.New(storage.DatabaseConfig{
 		Type: cfg.Database.Type,
 		Path: cfg.Database.Path,
+		URL:  cfg.Database.URL,
 	})
 	if err != nil {
 		logger.Fatal("Failed to init storage", zap.Error(err))
