@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -69,9 +68,9 @@ func (r *Registry) Get(id string) (*shared.Model, bool) {
 }
 
 func (r *Registry) SyncAll(ctx context.Context) {
-	providers := r.providerManager.GetAll()
+	allProviders := r.providerManager.GetAll()
 	var wg sync.WaitGroup
-	for _, p := range providers {
+	for _, p := range allProviders {
 		wg.Add(1)
 		go func(provider *providers.Provider) {
 			defer wg.Done()

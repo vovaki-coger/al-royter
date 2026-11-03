@@ -12,7 +12,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"go.uber.org/zap"
 
-	"github.com/vovaki-coger/al-royter/internal/providers"
 	"github.com/vovaki-coger/al-royter/internal/shared"
 )
 
