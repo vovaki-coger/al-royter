@@ -90,6 +90,8 @@ Authorization: Bearer YOUR_MASTER_KEY
 3. Render → Environment → добавь `DATABASE_URL` = эта строка
 4. Redeploy
 
+Можно вставить и **Neon API key** (`napi_...`) — сервер сам найдёт первый проект и получит строку подключения через Neon API.
+
 Схема создастся сама при старте. Если `DATABASE_URL` не задан — используется локальный SQLite (только для разработки).
 
 ### Альтернативы
