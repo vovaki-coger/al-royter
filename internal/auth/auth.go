@@ -102,19 +102,30 @@ func (m *Manager) AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := m.ExtractToken(c.Request)
 		if token == "" {
+			m.logger.Debug("AuthMiddleware: no token")
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
 		}
 
 		claims, err := m.ValidateToken(token)
 		if err != nil {
+			m.logger.Debug("AuthMiddleware: invalid token", zap.String("token_prefix", token[:8]), zap.Error(err))
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			return
 		}
 
 		user, err := m.store.GetUserByID(claims.UserID)
 		if err != nil || user == nil {
+			m.logger.Debug("AuthMiddleware: user not found", zap.String("user_id", claims.UserID), zap.Error(err))
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+			return
+		}
+
+		// Verify session exists and is not expired.
+		sess, err := m.store.GetSession(token)
+		if err != nil || sess == nil {
+			m.logger.Debug("AuthMiddleware: session not found or expired", zap.String("token_prefix", token[:8]), zap.Error(err))
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Session expired"})
 			return
 		}
 

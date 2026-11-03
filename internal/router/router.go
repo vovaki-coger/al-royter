@@ -256,15 +256,27 @@ func (r *Router) me(c *gin.Context) {
 }
 
 func (r *Router) listProviders(c *gin.Context) {
+	user := auth.GetUser(c.Request.Context())
+	userKeys := map[string]string{}
+	if user != nil {
+		userKeys, _ = r.store.GetProviderKeys(user.ID)
+		if user.NvidiaKey != "" {
+			userKeys["nvidia"] = user.NvidiaKey
+		}
+	}
+
 	providers := r.providerManager.GetAll()
 	result := make([]gin.H, 0, len(providers))
 	for _, p := range providers {
 		result = append(result, gin.H{
-			"name":         p.Name,
-			"api_base":     p.APIBase,
-			"has_key":      p.APIKey != "",
+			"name":     p.Name,
+			"api_base": p.APIBase,
+			"has_key":  p.APIKey != "" || userKeys[p.Name] != "",
 		})
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i]["name"].(string) < result[j]["name"].(string)
+	})
 	c.JSON(http.StatusOK, gin.H{"providers": result})
 }
 
@@ -276,8 +288,7 @@ func (r *Router) setProviderKey(c *gin.Context) {
 	}
 
 	providerName := c.Param("name")
-	provider, ok := r.providerManager.Get(providerName)
-	if !ok {
+	if _, ok := r.providerManager.Get(providerName); !ok {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Provider not found"})
 		return
 	}
@@ -296,8 +307,11 @@ func (r *Router) setProviderKey(c *gin.Context) {
 		return
 	}
 
-	provider.APIKey = req.APIKey
-	r.providerManager.SetAPIKey(providerName, req.APIKey)
+	// The key stays per-user: mutating the shared provider would leak it to
+	// every other account that uses the same provider.
+	if providerName == "nvidia" {
+		_ = r.store.UpdateUserNvidiaKey(user.ID, req.APIKey)
+	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Key saved", "provider": providerName})
 }

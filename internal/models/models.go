@@ -68,23 +68,44 @@ func (r *Registry) Get(id string) (*shared.Model, bool) {
 }
 
 func (r *Registry) SyncAll(ctx context.Context) {
+	r.syncAll(ctx, nil)
+}
+
+// SyncAllWithKeys syncs providers using per-user API keys. Providers without
+// a key are skipped: their /models endpoint would answer 401 anyway.
+func (r *Registry) SyncAllWithKeys(ctx context.Context, keys map[string]string) {
+	r.syncAll(ctx, keys)
+}
+
+func (r *Registry) syncAll(ctx context.Context, keys map[string]string) {
 	allProviders := r.providerManager.GetAll()
 	var wg sync.WaitGroup
 	for _, p := range allProviders {
+		apiKey := p.APIKey
+		if k, ok := keys[p.Name]; ok && k != "" {
+			apiKey = k
+		}
+		if apiKey == "" {
+			continue
+		}
 		wg.Add(1)
-		go func(provider *providers.Provider) {
+		go func(provider *providers.Provider, key string) {
 			defer wg.Done()
-			r.syncProvider(ctx, provider)
-		}(p)
+			r.syncProvider(ctx, provider, key)
+		}(p, apiKey)
 	}
 	wg.Wait()
 	r.logger.Info("Model sync completed", zap.Int("total_models", len(r.models)))
 }
 
-func (r *Registry) syncProvider(ctx context.Context, provider *providers.Provider) {
+func (r *Registry) syncProvider(ctx context.Context, provider *providers.Provider, apiKey string) {
 	r.logger.Debug("Syncing provider", zap.String("provider", provider.Name))
 
-	models, err := provider.FetchModels(ctx)
+	// Copy, never mutate the shared provider: its key must not leak between users.
+	p := *provider
+	p.APIKey = apiKey
+
+	models, err := p.FetchModels(ctx)
 	if err != nil {
 		r.logger.Error("Failed to fetch models", zap.String("provider", provider.Name), zap.Error(err))
 		return
