@@ -24,6 +24,7 @@ type Router struct {
 	modelRegistry  *models.Registry
 	providerManager *providers.Manager
 	authManager    *auth.Manager
+	googleOAuth    *auth.GoogleOAuth
 	logger         *zap.Logger
 	engine         *gin.Engine
 }
@@ -34,6 +35,7 @@ func New(
 	modelRegistry *models.Registry,
 	providerManager *providers.Manager,
 	authManager *auth.Manager,
+	googleOAuth *auth.GoogleOAuth,
 	logger *zap.Logger,
 ) *Router {
 	r := &Router{
@@ -42,6 +44,7 @@ func New(
 		modelRegistry:    modelRegistry,
 		providerManager:  providerManager,
 		authManager:      authManager,
+		googleOAuth:      googleOAuth,
 		logger:           logger.Named("router"),
 	}
 
@@ -82,6 +85,9 @@ func (r *Router) setupRoutes() {
 		authGroup.POST("/login", r.login)
 		authGroup.POST("/refresh", r.authManager.AuthMiddleware(), r.refresh)
 		authGroup.GET("/me", r.authManager.AuthMiddleware(), r.me)
+		authGroup.GET("/google/enabled", r.googleEnabled)
+		authGroup.GET("/google", r.googleOAuth.Login)
+		authGroup.GET("/google/callback", r.googleOAuth.Callback)
 	}
 
 	userGroup := r.engine.Group("/api")
@@ -112,6 +118,10 @@ func (r *Router) healthCheck(c *gin.Context) {
 
 func (r *Router) handleModelsList(c *gin.Context) {
 	r.modelRegistry.HandleModelsList(c.Writer, c.Request)
+}
+
+func (r *Router) googleEnabled(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"enabled": r.googleOAuth.Enabled()})
 }
 
 func (r *Router) register(c *gin.Context) {

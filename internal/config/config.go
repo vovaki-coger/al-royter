@@ -12,6 +12,7 @@ type Config struct {
 	Redis    RedisConfig    `yaml:"redis"`
 	JWT      JWTConfig      `yaml:"jwt"`
 	Nvidia   NvidiaConfig   `yaml:"nvidia"`
+	Google   GoogleConfig   `yaml:"google"`
 	Providers []ProviderConfig `yaml:"providers"`
 	OpenRouter OpenRouterConfig `yaml:"openrouter"`
 	Logging  LoggingConfig  `yaml:"logging"`
@@ -42,6 +43,12 @@ type JWTConfig struct {
 type NvidiaConfig struct {
 	APIBase       string `yaml:"api_base"`
 	ModelsEndpoint string `yaml:"models_endpoint"`
+}
+
+type GoogleConfig struct {
+	ClientID     string `yaml:"client_id"`
+	ClientSecret string `yaml:"client_secret"`
+	RedirectURL  string `yaml:"redirect_url"`
 }
 
 type ProviderConfig struct {
@@ -87,6 +94,15 @@ func Load(path string) (*Config, error) {
 	}
 	if secret := os.Getenv("JWT_SECRET"); secret != "" {
 		cfg.JWT.Secret = secret
+	}
+	if id := os.Getenv("GOOGLE_CLIENT_ID"); id != "" {
+		cfg.Google.ClientID = id
+	}
+	if secret := os.Getenv("GOOGLE_CLIENT_SECRET"); secret != "" {
+		cfg.Google.ClientSecret = secret
+	}
+	if ru := os.Getenv("GOOGLE_REDIRECT_URL"); ru != "" {
+		cfg.Google.RedirectURL = ru
 	}
 
 	return cfg, nil

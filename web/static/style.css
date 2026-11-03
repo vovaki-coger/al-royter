@@ -214,6 +214,36 @@ body {
     color: var(--primary-hover);
 }
 
+.btn-google {
+    width: 100%;
+    background: #ffffff;
+    color: #1f1f1f;
+    font-weight: 600;
+    padding: 12px 20px;
+    margin-bottom: 8px;
+}
+
+.btn-google:hover:not(:disabled) {
+    background: #f1f3f4;
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

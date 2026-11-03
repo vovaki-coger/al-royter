@@ -20,6 +20,11 @@ nvidia:
   api_base: "https://integrate.api.nvidia.com/v1"
   models_endpoint: "/models"
 
+google:
+  client_id: ""
+  client_secret: ""
+  redirect_url: ""
+
 providers:
   - name: "opencode"
     api_base: "https://api.opencode.ai/v1"
