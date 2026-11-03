@@ -7,11 +7,19 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/vovaki-coger/al-royter/internal/shared"
 	"go.uber.org/zap"
 )
+
+type ProviderConfig struct {
+	Name            string
+	APIBase         string
+	ModelsEndpoint  string
+	AuthType        string
+}
 
 type Provider struct {
 	Name            string

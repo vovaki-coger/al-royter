@@ -20,6 +20,19 @@ import (
 	"github.com/vovaki-coger/al-royter/internal/storage"
 )
 
+func toProviderConfigs(cfgs []config.ProviderConfig) []providers.ProviderConfig {
+	result := make([]providers.ProviderConfig, len(cfgs))
+	for i, c := range cfgs {
+		result[i] = providers.ProviderConfig{
+			Name:            c.Name,
+			APIBase:         c.APIBase,
+			ModelsEndpoint:  c.ModelsEndpoint,
+			AuthType:        c.AuthType,
+		}
+	}
+	return result
+}
+
 func main() {
 	_ = godotenv.Load()
 
@@ -41,7 +54,7 @@ func main() {
 	}
 	defer store.Close()
 
-	providerManager := providers.NewManager(cfg.Providers, logger)
+	providerManager := providers.NewManager(toProviderConfigs(cfg.Providers), logger)
 	modelRegistry := models.NewRegistry(store, providerManager, logger)
 	authManager := auth.NewManager(cfg.JWT, store, logger)
 	routerEngine := router.New(cfg, store, modelRegistry, providerManager, authManager, logger)
