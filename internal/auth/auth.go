@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 	"go.uber.org/zap"
@@ -97,54 +98,52 @@ func (m *Manager) ExtractToken(r *http.Request) string {
 	return auth
 }
 
-func (m *Manager) AuthMiddleware() func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			token := m.ExtractToken(r)
-			if token == "" {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
+func (m *Manager) AuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := m.ExtractToken(c.Request)
+		if token == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
 
-			claims, err := m.ValidateToken(token)
-			if err != nil {
-				http.Error(w, "Invalid token", http.StatusUnauthorized)
-				return
-			}
+		claims, err := m.ValidateToken(token)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			return
+		}
 
-			user, err := m.store.GetUserByID(claims.UserID)
-			if err != nil || user == nil {
-				http.Error(w, "User not found", http.StatusUnauthorized)
-				return
-			}
+		user, err := m.store.GetUserByID(claims.UserID)
+		if err != nil || user == nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+			return
+		}
 
-			ctx := r.Context()
-			ctx = WithUser(ctx, user)
-			ctx = WithClaims(ctx, claims)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
+		ctx := c.Request.Context()
+		ctx = WithUser(ctx, user)
+		ctx = WithClaims(ctx, claims)
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
 	}
 }
 
-func (m *Manager) MasterKeyMiddleware() func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			token := m.ExtractToken(r)
-			if token == "" {
-				http.Error(w, "API Key required", http.StatusUnauthorized)
-				return
-			}
+func (m *Manager) MasterKeyMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := m.ExtractToken(c.Request)
+		if token == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "API Key required"})
+			return
+		}
 
-			user, err := m.store.GetUserByMasterKey(token)
-			if err != nil || user == nil {
-				http.Error(w, "Invalid API Key", http.StatusUnauthorized)
-				return
-			}
+		user, err := m.store.GetUserByMasterKey(token)
+		if err != nil || user == nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid API Key"})
+			return
+		}
 
-			ctx := r.Context()
-			ctx = WithUser(ctx, user)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
+		ctx := c.Request.Context()
+		ctx = WithUser(ctx, user)
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
 	}
 }
 

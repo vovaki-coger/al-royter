@@ -2,8 +2,6 @@ package router
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -73,7 +71,7 @@ func (r *Router) setupRoutes() {
 	api := r.engine.Group("/v1")
 	{
 		api.GET("/health", r.healthCheck)
-		api.GET("/models", r.modelRegistry.HandleModelsList)
+		api.GET("/models", r.handleModelsList)
 		api.POST("/chat/completions", r.authManager.MasterKeyMiddleware(), r.chatCompletions)
 		api.POST("/chat/completions/stream", r.authManager.MasterKeyMiddleware(), r.streamChatCompletions)
 	}
@@ -98,6 +96,7 @@ func (r *Router) setupRoutes() {
 		userGroup.GET("/models", r.listUserModels)
 		userGroup.POST("/sync", r.syncModels)
 	}
+}
 
 	r.engine.NoRoute(r.spaHandler())
 	r.engine.Static("/static", "./web/static")
@@ -110,6 +109,10 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) healthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok", "time": time.Now().Unix()})
+}
+
+func (r *Router) handleModelsList(c *gin.Context) {
+	r.modelRegistry.HandleModelsList(c.Writer, c.Request)
 }
 
 func (r *Router) register(c *gin.Context) {
