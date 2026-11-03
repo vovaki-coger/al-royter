@@ -86,8 +86,9 @@ class ALRouter {
         });
 
         if (res.status === 401) {
-            this.logout();
-            throw new Error('Unauthorized');
+            const err = new Error('Unauthorized');
+            err.status = 401;
+            throw err;
         }
 
         const data = await res.json().catch(() => ({}));
@@ -108,7 +109,9 @@ class ALRouter {
             ]);
             this.updateStats();
         } catch (e) {
-            this.toast('Ошибка загрузки: ' + e.message, 'error');
+            if (e.status !== 401) {
+                this.toast('Ошибка загрузки: ' + e.message, 'error');
+            }
             this.logout();
         }
     }
@@ -401,8 +404,11 @@ class ALRouter {
             .then(d => {
                 if (!d.enabled) {
                     googleBtn.disabled = true;
-                    googleBtn.title = 'Google OAuth не настроен';
                     googleBtn.style.opacity = '0.5';
+                    const hint = document.createElement('p');
+                    hint.className = 'auth-hint';
+                    hint.textContent = 'Google не настроен на сервере — добавьте GOOGLE_CLIENT_ID и GOOGLE_CLIENT_SECRET в Render';
+                    googleBtn.insertAdjacentElement('afterend', hint);
                 }
             })
             .catch(() => {});

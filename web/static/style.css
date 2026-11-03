@@ -227,6 +227,13 @@ body {
     background: #f1f3f4;
 }
 
+.auth-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin: 4px 0 8px;
+    line-height: 1.4;
+}
+
 .auth-divider {
     display: flex;
     align-items: center;

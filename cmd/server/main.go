@@ -38,6 +38,7 @@ func main() {
 
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
+	zap.ReplaceGlobals(logger)
 
 	cfg, err := config.Load("config.yaml")
 	if err != nil {
