@@ -415,7 +415,7 @@ func (r *Router) listUserModels(c *gin.Context) {
 	keys, _ := r.store.GetProviderKeys(user.ID)
 	allModels := r.modelRegistry.GetAll()
 
-	var userModels []*shared.Model
+	userModels := make([]*shared.Model, 0, len(allModels))
 	for _, m := range allModels {
 		if _, ok := keys[m.Provider]; ok || m.Provider == "nvidia" {
 			userModels = append(userModels, m)

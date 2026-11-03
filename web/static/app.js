@@ -126,7 +126,7 @@ class ALRouter {
 
     async loadProviders() {
         const data = await this.api('/api/providers');
-        this.providers = data.providers;
+        this.providers = data.providers || [];
         this.renderProviders();
         this.updateProviderFilter();
     }
@@ -174,7 +174,7 @@ class ALRouter {
 
     async loadModels() {
         const data = await this.api('/api/models');
-        this.models = data.models;
+        this.models = data.models || [];
         this.renderModels();
     }
 
@@ -185,7 +185,7 @@ class ALRouter {
         const search = document.getElementById('modelSearch').value.toLowerCase();
         const providerFilter = document.getElementById('modelProviderFilter').value;
 
-        const filtered = this.models.filter(m => {
+        const filtered = (this.models || []).filter(m => {
             const matchSearch = m.id.toLowerCase().includes(search) ||
                 (m.provider && m.provider.toLowerCase().includes(search));
             const matchProvider = !providerFilter || m.provider === providerFilter;
@@ -487,8 +487,8 @@ class ALRouter {
     updateStats() {
         const keysCount = Object.keys(this.user?.provider_keys || {}).length + (this.user?.nvidia_key ? 1 : 0);
         document.getElementById('statKeys').textContent = keysCount;
-        document.getElementById('statModels').textContent = this.models.length;
-        document.getElementById('statProviders').textContent = this.providers.filter(p => p.has_key).length;
+        document.getElementById('statModels').textContent = (this.models || []).length;
+        document.getElementById('statProviders').textContent = (this.providers || []).filter(p => p.has_key).length;
         document.getElementById('statMasterKey').textContent = this.user?.master_key ? '✅ Задан' : '❌ Нет';
     }
 
