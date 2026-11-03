@@ -96,7 +96,6 @@ func (r *Router) setupRoutes() {
 		userGroup.GET("/models", r.listUserModels)
 		userGroup.POST("/sync", r.syncModels)
 	}
-}
 
 	r.engine.NoRoute(r.spaHandler())
 	r.engine.Static("/static", "./web/static")
