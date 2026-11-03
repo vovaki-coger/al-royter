@@ -48,7 +48,10 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	store, err := storage.New(cfg.Database)
+	store, err := storage.New(storage.DatabaseConfig{
+		Type: cfg.Database.Type,
+		Path: cfg.Database.Path,
+	})
 	if err != nil {
 		logger.Fatal("Failed to init storage", zap.Error(err))
 	}
@@ -56,7 +59,7 @@ func main() {
 
 	providerManager := providers.NewManager(toProviderConfigs(cfg.Providers), logger)
 	modelRegistry := models.NewRegistry(store, providerManager, logger)
-	authManager := auth.NewManager(cfg.JWT, store, logger)
+	authManager := auth.NewManager(&cfg.JWT, store, logger)
 	routerEngine := router.New(cfg, store, modelRegistry, providerManager, authManager, logger)
 
 	go func() {
