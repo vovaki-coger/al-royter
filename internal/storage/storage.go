@@ -32,9 +32,24 @@ type DatabaseConfig struct {
 
 func New(cfg DatabaseConfig) (*Store, error) {
 	if cfg.URL != "" {
-		return newPostgres(cfg.URL)
+		u := strings.TrimSpace(cfg.URL)
+		if !strings.HasPrefix(u, "postgres://") && !strings.HasPrefix(u, "postgresql://") {
+			zap.L().Error("DATABASE_URL is not a Postgres URL — ignoring it and falling back to SQLite. " +
+				"Expected format: postgresql://user:pass@host/db?sslmode=require")
+			return newSQLite(cfg.Path)
+		}
+		pg, err := newPostgres(u)
+		if err != nil {
+			zap.L().Error("Postgres unavailable, falling back to SQLite (data will NOT persist on Render)", zap.Error(err))
+			return newSQLite(cfg.Path)
+		}
+		return pg, nil
 	}
 	return newSQLite(cfg.Path)
+}
+
+func (s *Store) Dialect() string {
+	return s.dialect
 }
 
 func newPostgres(url string) (*Store, error) {

@@ -113,7 +113,11 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) healthCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok", "time": time.Now().Unix()})
+	c.JSON(http.StatusOK, gin.H{
+		"status":   "ok",
+		"time":     time.Now().Unix(),
+		"database": r.store.Dialect(),
+	})
 }
 
 func (r *Router) handleModelsList(c *gin.Context) {
