@@ -26,6 +26,11 @@ google:
   client_secret: ""
   redirect_url: ""
 
+security:
+  allow_registration: true
+  rate_limit_rps: 2
+  rate_limit_burst: 30
+
 providers:
   - name: "opencode"
     api_base: "https://api.opencode.ai/v1"

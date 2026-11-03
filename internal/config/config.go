@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -13,6 +14,7 @@ type Config struct {
 	JWT      JWTConfig      `yaml:"jwt"`
 	Nvidia   NvidiaConfig   `yaml:"nvidia"`
 	Google   GoogleConfig   `yaml:"google"`
+	Security SecurityConfig `yaml:"security"`
 	Providers []ProviderConfig `yaml:"providers"`
 	OpenRouter OpenRouterConfig `yaml:"openrouter"`
 	Logging  LoggingConfig  `yaml:"logging"`
@@ -50,6 +52,12 @@ type GoogleConfig struct {
 	ClientID     string `yaml:"client_id"`
 	ClientSecret string `yaml:"client_secret"`
 	RedirectURL  string `yaml:"redirect_url"`
+}
+
+type SecurityConfig struct {
+	AllowRegistration bool    `yaml:"allow_registration"`
+	RateLimitRPS      float64 `yaml:"rate_limit_rps"`
+	RateLimitBurst    int     `yaml:"rate_limit_burst"`
 }
 
 type ProviderConfig struct {
@@ -107,6 +115,16 @@ func Load(path string) (*Config, error) {
 	}
 	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
 		cfg.Database.URL = dbURL
+	}
+	if v := strings.ToLower(strings.TrimSpace(os.Getenv("ALLOW_REGISTRATION"))); v != "" {
+		cfg.Security.AllowRegistration = v == "1" || v == "true" || v == "yes"
+	}
+
+	if cfg.Security.RateLimitRPS <= 0 {
+		cfg.Security.RateLimitRPS = 2
+	}
+	if cfg.Security.RateLimitBurst <= 0 {
+		cfg.Security.RateLimitBurst = 30
 	}
 
 	return cfg, nil

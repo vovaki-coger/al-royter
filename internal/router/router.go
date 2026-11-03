@@ -14,6 +14,7 @@ import (
 	"github.com/vovaki-coger/al-royter/internal/config"
 	"github.com/vovaki-coger/al-royter/internal/models"
 	"github.com/vovaki-coger/al-royter/internal/providers"
+	"github.com/vovaki-coger/al-royter/internal/security"
 	"github.com/vovaki-coger/al-royter/internal/shared"
 	"github.com/vovaki-coger/al-royter/internal/storage"
 )
@@ -27,6 +28,8 @@ type Router struct {
 	googleOAuth    *auth.GoogleOAuth
 	logger         *zap.Logger
 	engine         *gin.Engine
+	authLimiter    *security.Limiter
+	apiLimiter     *security.Limiter
 }
 
 func New(
@@ -46,10 +49,13 @@ func New(
 		authManager:      authManager,
 		googleOAuth:      googleOAuth,
 		logger:           logger.Named("router"),
+		authLimiter:      security.NewLimiter(0.5, 10),
+		apiLimiter:       security.NewLimiter(cfg.Security.RateLimitRPS, cfg.Security.RateLimitBurst),
 	}
 
 	r.engine = gin.New()
 	r.engine.Use(gin.Recovery())
+	r.engine.Use(security.Headers())
 	r.engine.Use(r.logMiddleware())
 	r.setupRoutes()
 	return r
@@ -72,14 +78,23 @@ func (r *Router) logMiddleware() gin.HandlerFunc {
 
 func (r *Router) setupRoutes() {
 	api := r.engine.Group("/v1")
+	api.Use(security.BodyLimit(8 << 20))
 	{
 		api.GET("/health", r.healthCheck)
 		api.GET("/models", r.handleModelsList)
-		api.POST("/chat/completions", r.authManager.MasterKeyMiddleware(), r.chatCompletions)
-		api.POST("/chat/completions/stream", r.authManager.MasterKeyMiddleware(), r.streamChatCompletions)
+		api.POST("/chat/completions",
+			r.apiLimiter.MiddlewareByKey(r.apiKeyOf),
+			r.authManager.MasterKeyMiddleware(),
+			r.chatCompletions)
+		api.POST("/chat/completions/stream",
+			r.apiLimiter.MiddlewareByKey(r.apiKeyOf),
+			r.authManager.MasterKeyMiddleware(),
+			r.streamChatCompletions)
 	}
 
 	authGroup := r.engine.Group("/auth")
+	authGroup.Use(r.authLimiter.Middleware())
+	authGroup.Use(security.BodyLimit(64 << 10))
 	{
 		authGroup.POST("/register", r.register)
 		authGroup.POST("/login", r.login)
@@ -91,8 +106,10 @@ func (r *Router) setupRoutes() {
 	}
 
 	userGroup := r.engine.Group("/api")
+	userGroup.Use(security.BodyLimit(1 << 20))
 	userGroup.Use(r.authManager.AuthMiddleware())
 	{
+		userGroup.GET("/me", r.me)
 		userGroup.GET("/providers", r.listProviders)
 		userGroup.POST("/providers/:name/key", r.setProviderKey)
 		userGroup.DELETE("/providers/:name/key", r.deleteProviderKey)
@@ -103,9 +120,20 @@ func (r *Router) setupRoutes() {
 		userGroup.POST("/sync", r.syncModels)
 	}
 
+	r.engine.GET("/privacy", func(c *gin.Context) { c.File("./web/static/privacy.html") })
+	r.engine.GET("/terms", func(c *gin.Context) { c.File("./web/static/terms.html") })
+
 	r.engine.NoRoute(r.spaHandler())
 	r.engine.Static("/static", "./web/static")
 	r.engine.LoadHTMLGlob("web/templates/*")
+}
+
+// apiKeyOf keys the rate limiter by master key, so one client cannot starve others.
+func (r *Router) apiKeyOf(c *gin.Context) string {
+	if token := r.authManager.ExtractToken(c.Request); token != "" {
+		return "key:" + token
+	}
+	return "ip:" + c.ClientIP()
 }
 
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -129,6 +157,11 @@ func (r *Router) googleEnabled(c *gin.Context) {
 }
 
 func (r *Router) register(c *gin.Context) {
+	if !r.config.Security.AllowRegistration {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Registration is disabled on this server"})
+		return
+	}
+
 	var req struct {
 		Email    string `json:"email" binding:"required,email"`
 		Password string `json:"password" binding:"required,min=8"`

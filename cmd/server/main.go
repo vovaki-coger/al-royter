@@ -75,9 +75,21 @@ func main() {
 		}
 	}()
 
+	go func() {
+		ticker := time.NewTicker(6 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			if err := store.CleanExpiredSessions(); err != nil {
+				logger.Warn("Failed to clean expired sessions", zap.Error(err))
+			}
+		}
+	}()
+
 	srv := &http.Server{
-		Addr:    cfg.Server.Host + ":" + cfg.Server.Port,
-		Handler: routerEngine,
+		Addr:              cfg.Server.Host + ":" + cfg.Server.Port,
+		Handler:           routerEngine,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	go func() {
