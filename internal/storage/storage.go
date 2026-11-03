@@ -12,7 +12,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"go.uber.org/zap"
 
-	"github.com/vovaki-coger/al-royter/internal/models"
 	"github.com/vovaki-coger/al-royter/internal/providers"
 	"github.com/vovaki-coger/al-royter/internal/shared"
 )
@@ -181,7 +180,7 @@ func (s *Store) DeleteProviderKey(userID, provider string) error {
 	return err
 }
 
-func (s *Store) SaveModels(provider string, models []*models.Model) error {
+func (s *Store) SaveModels(provider string, models []*shared.Model) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -206,7 +205,7 @@ func (s *Store) SaveModels(provider string, models []*models.Model) error {
 	return tx.Commit()
 }
 
-func (s *Store) LoadModels(provider string) ([]*models.Model, error) {
+func (s *Store) LoadModels(provider string) ([]*shared.Model, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -216,13 +215,13 @@ func (s *Store) LoadModels(provider string) ([]*models.Model, error) {
 	}
 	defer rows.Close()
 
-	var result []*models.Model
+	var result []*shared.Model
 	for rows.Next() {
 		var data string
 		if err := rows.Scan(&data); err != nil {
 			continue
 		}
-		var m models.Model
+		var m shared.Model
 		if err := json.Unmarshal([]byte(data), &m); err != nil {
 			continue
 		}

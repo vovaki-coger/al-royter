@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vovaki-coger/al-royter/internal/shared"
 	"go.uber.org/zap"
 )
 
@@ -74,7 +75,7 @@ func (m *Manager) SetAPIKey(provider, key string) {
 	}
 }
 
-func (p *Provider) FetchModels(ctx context.Context) ([]*Model, error) {
+func (p *Provider) FetchModels(ctx context.Context) ([]*shared.Model, error) {
 	url := p.APIBase + p.ModelsEndpoint
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -117,7 +118,7 @@ func (p *Provider) FetchModels(ctx context.Context) ([]*Model, error) {
 		models = result.Models
 	}
 
-	var out []*Model
+	var out []*shared.Model
 	for _, m := range models {
 		out = append(out, parseModel(p.Name, m))
 	}
@@ -188,39 +189,7 @@ func (p *Provider) StreamChatCompletion(ctx context.Context, req *ChatRequest) (
 	return p.HTTPClient.Do(httpReq)
 }
 
-type Model struct {
-	ID              string                 `json:"id"`
-	Object          string                 `json:"object"`
-	Created         int64                  `json:"created"`
-	OwnedBy         string                 `json:"owned_by"`
-	Provider        string                 `json:"-"`
-	ProviderID      string                 `json:"-"`
-	Capabilities    ModelCapabilities      `json:"capabilities,omitempty"`
-	ContextWindow   int                    `json:"context_window,omitempty"`
-	MaxOutputTokens int                    `json:"max_output_tokens,omitempty"`
-	Pricing         ModelPricing           `json:"pricing,omitempty"`
-}
 
-type ModelCapabilities struct {
-	ChatCompletion     bool `json:"chat_completion"`
-	Completion         bool `json:"completion"`
-	Embedding          bool `json:"embedding"`
-	ImageGeneration    bool `json:"image_generation"`
-	AudioTranscription bool `json:"audio_transcription"`
-	AudioGeneration    bool `json:"audio_generation"`
-	FunctionCalling    bool `json:"function_calling"`
-	Vision             bool `json:"vision"`
-	Streaming          bool `json:"streaming"`
-}
-
-type ModelPricing struct {
-	PromptTokens     float64 `json:"prompt_tokens,omitempty"`
-	CompletionTokens float64 `json:"completion_tokens,omitempty"`
-	ImageTokens      float64 `json:"image_tokens,omitempty"`
-	AudioTokens      float64 `json:"audio_tokens,omitempty"`
-	Currency         string  `json:"currency,omitempty"`
-	Unit             string  `json:"unit,omitempty"`
-}
 
 type ChatRequest struct {
 	Model       string        `json:"model"`
@@ -278,7 +247,7 @@ type Usage struct {
 	TotalTokens      int `json:"total_tokens"`
 }
 
-func parseModel(providerName string, data map[string]interface{}) *Model {
+func parseModel(providerName string, data map[string]interface{}) *shared.Model {
 	id := getString(data, "id")
 	if id == "" {
 		id = getString(data, "name")
@@ -289,7 +258,7 @@ func parseModel(providerName string, data map[string]interface{}) *Model {
 		ownedBy = providerName
 	}
 
-	caps := ModelCapabilities{
+	caps := shared.ModelCapabilities{
 		ChatCompletion: true,
 		Streaming:      true,
 	}
@@ -311,7 +280,7 @@ func parseModel(providerName string, data map[string]interface{}) *Model {
 		caps.Vision = getBool(supports, "vision")
 	}
 
-	pricing := ModelPricing{
+	pricing := shared.ModelPricing{
 		Currency: "USD",
 		Unit:     "1M tokens",
 	}
@@ -322,7 +291,7 @@ func parseModel(providerName string, data map[string]interface{}) *Model {
 		pricing.AudioTokens = getFloat(p, "audio")
 	}
 
-	return &Model{
+	return &shared.Model{
 		ID:              fmt.Sprintf("%s/%s", providerName, id),
 		Object:          "model",
 		Created:         time.Now().Unix(),

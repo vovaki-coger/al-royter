@@ -11,77 +11,48 @@ import (
 
 	"github.com/vovaki-coger/al-royter/internal/config"
 	"github.com/vovaki-coger/al-royter/internal/providers"
-	"github.com/vovaki-coger/al-royter/internal/storage"
+	"github.com/vovaki-coger/al-royter/internal/shared"
 	"go.uber.org/zap"
 )
 
-type Model struct {
-	ID           string            `json:"id"`
-	Object       string            `json:"object"`
-	Created      int64             `json:"created"`
-	OwnedBy      string            `json:"owned_by"`
-	Provider     string            `json:"provider"`
-	ProviderID   string            `json:"provider_id"`
-	Capabilities ModelCapabilities `json:"capabilities"`
-	ContextWindow int              `json:"context_window,omitempty"`
-	MaxOutputTokens int            `json:"max_output_tokens,omitempty"`
-	Pricing      ModelPricing      `json:"pricing,omitempty"`
-}
-
-type ModelCapabilities struct {
-	ChatCompletion      bool `json:"chat_completion"`
-	Completion          bool `json:"completion"`
-	Embedding           bool `json:"embedding"`
-	ImageGeneration     bool `json:"image_generation"`
-	AudioTranscription  bool `json:"audio_transcription"`
-	AudioGeneration     bool `json:"audio_generation"`
-	FunctionCalling     bool `json:"function_calling"`
-	Vision              bool `json:"vision"`
-	Streaming           bool `json:"streaming"`
-}
-
-type ModelPricing struct {
-	PromptTokens     float64 `json:"prompt_tokens,omitempty"`
-	CompletionTokens float64 `json:"completion_tokens,omitempty"`
-	ImageTokens      float64 `json:"image_tokens,omitempty"`
-	AudioTokens      float64 `json:"audio_tokens,omitempty"`
-	Currency         string  `json:"currency,omitempty"`
-	Unit             string  `json:"unit,omitempty"`
-}
-
 type Registry struct {
-	store          storage.Store
+	store          ModelStore
 	providerManager *providers.Manager
 	logger         *zap.Logger
 	mu             sync.RWMutex
-	models         map[string]*Model
+	models         map[string]*shared.Model
 	lastSync       map[string]time.Time
 }
 
-func NewRegistry(store storage.Store, pm *providers.Manager, logger *zap.Logger) *Registry {
+type ModelStore interface {
+	SaveModels(provider string, models []*shared.Model) error
+	LoadModels(provider string) ([]*shared.Model, error)
+}
+
+func NewRegistry(store ModelStore, pm *providers.Manager, logger *zap.Logger) *Registry {
 	return &Registry{
 		store:           store,
 		providerManager: pm,
 		logger:          logger,
-		models:          make(map[string]*Model),
+		models:          make(map[string]*shared.Model),
 		lastSync:        make(map[string]time.Time),
 	}
 }
 
-func (r *Registry) GetAll() []*Model {
+func (r *Registry) GetAll() []*shared.Model {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	result := make([]*Model, 0, len(r.models))
+	result := make([]*shared.Model, 0, len(r.models))
 	for _, m := range r.models {
 		result = append(result, m)
 	}
 	return result
 }
 
-func (r *Registry) GetByProvider(provider string) []*Model {
+func (r *Registry) GetByProvider(provider string) []*shared.Model {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	var result []*Model
+	var result []*shared.Model
 	for _, m := range r.models {
 		if m.Provider == provider {
 			result = append(result, m)
@@ -90,7 +61,7 @@ func (r *Registry) GetByProvider(provider string) []*Model {
 	return result
 }
 
-func (r *Registry) Get(id string) (*Model, bool) {
+func (r *Registry) Get(id string) (*shared.Model, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	m, ok := r.models[id]
@@ -113,7 +84,7 @@ func (r *Registry) SyncAll(ctx context.Context) {
 
 func (r *Registry) syncProvider(ctx context.Context, provider *providers.Provider) {
 	r.logger.Debug("Syncing provider", zap.String("provider", provider.Name))
-	
+
 	models, err := provider.FetchModels(ctx)
 	if err != nil {
 		r.logger.Error("Failed to fetch models", zap.String("provider", provider.Name), zap.Error(err))
@@ -124,7 +95,7 @@ func (r *Registry) syncProvider(ctx context.Context, provider *providers.Provide
 	defer r.mu.Unlock()
 
 	for _, m := range models {
-		key := fmt.Sprintf("%s/%s", provider.Name, m.ID)
+		key := fmt.Sprintf("%s/%s", provider.Name, m.ProviderID)
 		r.models[key] = m
 	}
 	r.lastSync[provider.Name] = time.Now()
@@ -143,7 +114,7 @@ func (r *Registry) LoadFromStorage() error {
 		}
 		r.mu.Lock()
 		for _, m := range models {
-			key := fmt.Sprintf("%s/%s", provider.Name, m.ID)
+			key := fmt.Sprintf("%s/%s", provider.Name, m.ProviderID)
 			r.models[key] = m
 		}
 		r.mu.Unlock()
@@ -185,18 +156,18 @@ func (r *Registry) GetOpenRouterConfig(cfg *config.Config) map[string]interface{
 	}
 }
 
-func parseModelFromProvider(providerName string, data map[string]interface{}) *Model {
+func parseModelFromProvider(providerName string, data map[string]interface{}) *shared.Model {
 	id := getString(data, "id")
 	if id == "" {
 		id = getString(data, "name")
 	}
-	
+
 	ownedBy := getString(data, "owned_by")
 	if ownedBy == "" {
 		ownedBy = providerName
 	}
 
-	caps := ModelCapabilities{
+	caps := shared.ModelCapabilities{
 		ChatCompletion: true,
 		Streaming:      true,
 	}
@@ -218,7 +189,7 @@ func parseModelFromProvider(providerName string, data map[string]interface{}) *M
 		caps.Vision = getBool(supports, "vision")
 	}
 
-	pricing := ModelPricing{
+	pricing := shared.ModelPricing{
 		Currency: "USD",
 		Unit:     "1M tokens",
 	}
@@ -229,7 +200,7 @@ func parseModelFromProvider(providerName string, data map[string]interface{}) *M
 		pricing.AudioTokens = getFloat(p, "audio")
 	}
 
-	return &Model{
+	return &shared.Model{
 		ID:              fmt.Sprintf("%s/%s", providerName, id),
 		Object:          "model",
 		Created:         time.Now().Unix(),

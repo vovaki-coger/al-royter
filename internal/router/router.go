@@ -16,6 +16,7 @@ import (
 	"github.com/vovaki-coger/al-royter/internal/config"
 	"github.com/vovaki-coger/al-royter/internal/models"
 	"github.com/vovaki-coger/al-royter/internal/providers"
+	"github.com/vovaki-coger/al-royter/internal/shared"
 	"github.com/vovaki-coger/al-royter/internal/storage"
 )
 
@@ -365,7 +366,7 @@ func (r *Router) listUserModels(c *gin.Context) {
 	keys, _ := r.store.GetProviderKeys(user.ID)
 	allModels := r.modelRegistry.GetAll()
 
-	var userModels []*models.Model
+	var userModels []*shared.Model
 	for _, m := range allModels {
 		if _, ok := keys[m.Provider]; ok || m.Provider == "nvidia" {
 			userModels = append(userModels, m)
