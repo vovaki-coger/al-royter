@@ -3,6 +3,7 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -36,9 +37,21 @@ func resolveNeonURI(apiKey string) (string, error) {
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("neon api %s: HTTP %d", path, resp.StatusCode)
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 300))
+			return fmt.Errorf("neon api %s: HTTP %d: %s", path, resp.StatusCode, strings.TrimSpace(string(body)))
 		}
 		return json.NewDecoder(resp.Body).Decode(out)
+	}
+
+	// Personal Neon API keys need an explicit org_id since 2026.
+	var orgs struct {
+		Organizations []struct {
+			ID string `json:"id"`
+		} `json:"organizations"`
+	}
+	orgPath := "/projects"
+	if err := get("/users/me/organizations", &orgs); err == nil && len(orgs.Organizations) > 0 {
+		orgPath = "/projects?org_id=" + url.QueryEscape(orgs.Organizations[0].ID)
 	}
 
 	var projects struct {
@@ -47,7 +60,7 @@ func resolveNeonURI(apiKey string) (string, error) {
 			Name string `json:"name"`
 		} `json:"projects"`
 	}
-	if err := get("/projects", &projects); err != nil {
+	if err := get(orgPath, &projects); err != nil {
 		return "", err
 	}
 	if len(projects.Projects) == 0 {
@@ -109,6 +122,9 @@ func resolveNeonURI(apiKey string) (string, error) {
 	if uri.URI == "" {
 		return "", fmt.Errorf("neon returned empty connection uri")
 	}
+	// lib/pq does not understand libpq client options like channel_binding.
+	uri.URI = strings.ReplaceAll(uri.URI, "channel_binding=require&", "")
+	uri.URI = strings.ReplaceAll(uri.URI, "&channel_binding=require", "")
 	if !strings.Contains(uri.URI, "sslmode=") {
 		sep := "?"
 		if strings.Contains(uri.URI, "?") {
