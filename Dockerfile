@@ -6,9 +6,10 @@ WORKDIR /app
 RUN apk add --no-cache git gcc musl-dev sqlite-dev
 
 COPY go.mod ./
-RUN go mod download && go mod tidy
+RUN go mod download
 
 COPY . .
+RUN go mod tidy
 
 RUN CGO_ENABLED=1 GOOS=linux go build -o al-royter ./cmd/server
 
