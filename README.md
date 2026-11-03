@@ -79,6 +79,21 @@ Authorization: Bearer YOUR_MASTER_KEY
 
 Формат: `provider/model-id` (например: `nvidia/nemotron-3-ultra`, `deepseek/deepseek-chat`, `opencode/gpt-4`)
 
+## Вход через Google
+
+Кнопка «Продолжить с Google» на экране входа. Чтобы включить:
+
+1. [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → **Create Credentials → OAuth client ID → Web application**
+2. **Authorized redirect URI**: `https://ВАШ_ДОМЕН/auth/google/callback`
+   (для локалки: `http://localhost:8080/auth/google/callback`)
+3. В Render добавьте переменные:
+   - `GOOGLE_CLIENT_ID`
+   - `GOOGLE_CLIENT_SECRET`
+   - `GOOGLE_REDIRECT_URL` (необязательно, если домен стандартный)
+4. Redeploy. Кнопка станет активной.
+
+Аккаунт создаётся автоматически при первом входе. Если email уже есть — произойдёт вход в существующий аккаунт.
+
 ## Подключение к OpenRouter
 
 1. Зарегистрируйтесь в AL-Router → получите **Master Key**
@@ -133,6 +148,9 @@ al-royter/
 | `PORT` | Порт сервера | `8080` |
 | `HOST` | Хост | `0.0.0.0` |
 | `JWT_SECRET` | Секрет для JWT | **обязательно** |
+| `GOOGLE_CLIENT_ID` | Google OAuth Client ID | нет |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth Secret | нет |
+| `GOOGLE_REDIRECT_URL` | Redirect URI (по умолчанию авто) | нет |
 | `GIN_MODE` | Режим Gin | `release` |
 
 ## Лицензия
