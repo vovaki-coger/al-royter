@@ -78,9 +78,30 @@ func (r *Router) logMiddleware() gin.HandlerFunc {
 	}
 }
 
+// corsMiddleware allows cross-origin requests from Electron apps and browsers.
+// DeepSeek Harness / OpenCode fetch /v1/models directly from the frontend,
+// so we need CORS headers on the /v1 group.
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With")
+		c.Header("Access-Control-Expose-Headers", "Content-Length")
+		c.Header("Access-Control-Allow-Credentials", "true")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
+	}
+}
+
 func (r *Router) setupRoutes() {
 	api := r.engine.Group("/v1")
 	api.Use(security.BodyLimit(8 << 20))
+	api.Use(corsMiddleware())
 	{
 		api.GET("/health", r.healthCheck)
 		api.GET("/models", r.handleModelsList)
@@ -453,6 +474,9 @@ func (r *Router) getOpenCodeConfig(c *gin.Context) {
 		if !openCodeChatModel(m.ID) {
 			continue
 		}
+		if !m.Capabilities.ChatCompletion {
+			continue
+		}
 		if _, ok := keys[m.Provider]; !ok && m.Provider != "nvidia" {
 			continue
 		}
@@ -488,14 +512,22 @@ func (r *Router) getOpenCodeConfig(c *gin.Context) {
 			input = append(input, "image")
 		}
 
+		caps := map[string]interface{}{
+			"tools":  openCodeToolsModel(m.ID),
+			"input":  input,
+			"output": []string{"text"},
+		}
+		if m.Capabilities.Vision {
+			caps["vision"] = true
+		}
+		if m.Capabilities.ImageGeneration {
+			caps["image_generation"] = true
+		}
+		// Optionally include other capabilities if needed
 		modelConfigs[m.ID] = map[string]interface{}{
 			"modelID": m.ID,
 			"name":    openCodeModelName(m.ID),
-			"capabilities": map[string]interface{}{
-				"tools":  openCodeToolsModel(m.ID),
-				"input":  input,
-				"output": []string{"text"},
-			},
+			"capabilities": caps,
 			"limit": map[string]interface{}{
 				"context": ctxLimit,
 				"output":  outLimit,
