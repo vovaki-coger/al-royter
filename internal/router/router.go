@@ -450,10 +450,15 @@ func (r *Router) syncModels(c *gin.Context) {
 		return
 	}
 
+	userKeys, _ := r.store.GetProviderKeys(user.ID)
+	if user.NvidiaKey != "" {
+		userKeys["nvidia"] = user.NvidiaKey
+	}
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Minute)
 	defer cancel()
 
-	r.modelRegistry.SyncAll(ctx)
+	r.modelRegistry.SyncAllWithKeys(ctx, userKeys)
 	c.JSON(http.StatusOK, gin.H{"message": "Sync completed"})
 }
 

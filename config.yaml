@@ -44,6 +44,10 @@ providers:
     api_base: "https://api.hardness.ai/v1"
     models_endpoint: "/models"
     auth_type: "bearer"
+  - name: "nvidia"
+    api_base: "https://integrate.api.nvidia.com/v1"
+    models_endpoint: "/models"
+    auth_type: "bearer"
 
 openrouter:
   config_url: "https://openrouter.ai/settings/keys"
