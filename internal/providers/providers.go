@@ -1,6 +1,7 @@
 package providers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -249,6 +250,43 @@ func (p *Provider) StreamChatCompletion(ctx context.Context, req *ChatRequest) (
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		return nil, providerError(p.Name, resp.StatusCode, body)
+	}
+	return resp, nil
+}
+
+// DoChatCompletion forwards an already-serialized request body and returns the
+// raw upstream response. Unknown OpenAI fields (tools, stream_options,
+// reasoning_effort, response_format, ...) reach the provider untouched.
+func (p *Provider) DoChatCompletion(ctx context.Context, body []byte, stream bool) (*http.Response, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", p.APIBase+"/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+
+	accept := "application/json"
+	if stream {
+		accept = "text/event-stream"
+		httpReq.Header.Set("Cache-Control", "no-cache")
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", accept)
+	if p.APIKey != "" {
+		switch p.AuthType {
+		case "bearer":
+			httpReq.Header.Set("Authorization", "Bearer "+p.APIKey)
+		case "api_key":
+			httpReq.Header.Set("X-API-Key", p.APIKey)
+		}
+	}
+
+	resp, err := p.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, providerError(p.Name, resp.StatusCode, respBody)
 	}
 	return resp, nil
 }

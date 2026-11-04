@@ -492,7 +492,7 @@ func (r *Router) getOpenCodeConfig(c *gin.Context) {
 			"modelID": m.ID,
 			"name":    openCodeModelName(m.ID),
 			"capabilities": map[string]interface{}{
-				"tools":  true,
+				"tools":  openCodeToolsModel(m.ID),
 				"input":  input,
 				"output": []string{"text"},
 			},
@@ -561,6 +561,23 @@ func openCodeChatModel(id string) bool {
 func openCodeVisionModel(id string) bool {
 	lower := strings.ToLower(id)
 	return strings.Contains(lower, "vision") || strings.Contains(lower, "-vl") || strings.Contains(lower, "omni")
+}
+
+// Families known to accept OpenAI-style tool calls on NVIDIA Build. Enabling
+// tools on a model that rejects them would break every agent request.
+var openCodeToolTags = []string{
+	"nemotron", "glm", "deepseek", "minimax", "gpt-oss",
+	"mistral", "llama", "qwen", "step",
+}
+
+func openCodeToolsModel(id string) bool {
+	lower := strings.ToLower(id)
+	for _, tag := range openCodeToolTags {
+		if strings.Contains(lower, tag) {
+			return true
+		}
+	}
+	return false
 }
 
 func openCodeModelName(id string) string {
@@ -633,70 +650,113 @@ func (r *Router) syncModels(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Sync completed"})
 }
 
-func (r *Router) chatCompletions(c *gin.Context) {
+// bindChat reads an OpenAI-compatible request as a raw map, so fields this
+// gateway does not model (tools, stream_options, reasoning_effort, ...) still
+// reach the provider untouched.
+func (r *Router) bindChat(c *gin.Context) (map[string]interface{}, *providers.Provider, string, string, bool) {
 	user := auth.GetUser(c.Request.Context())
 	if user == nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
+		return nil, nil, "", "", false
 	}
 
-	var req providers.ChatRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var raw map[string]interface{}
+	if err := c.ShouldBindJSON(&raw); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		return nil, nil, "", "", false
 	}
 
-	providerName, modelID := parseModelID(req.Model)
+	requested, _ := raw["model"].(string)
+	providerName, modelID := parseModelID(requested)
 	if providerName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid model format. Use provider/model-id"})
-		return
+		return nil, nil, "", "", false
+	}
+
+	// NVIDIA rejects some optional OpenAI fields, and OpenCode always sends
+	// stream_options. Neither changes the answer, so drop them here.
+	delete(raw, "stream_options")
+	delete(raw, "parallel_tool_calls")
+	if v, ok := raw["max_completion_tokens"]; ok {
+		if _, has := raw["max_tokens"]; !has {
+			raw["max_tokens"] = v
+		}
+		delete(raw, "max_completion_tokens")
 	}
 
 	provider, status, msg := r.providerForUser(providerName, user)
 	if provider == nil {
 		c.JSON(status, gin.H{"error": msg})
+		return nil, nil, "", "", false
+	}
+
+	return raw, provider, requested, modelID, true
+}
+
+func (r *Router) chatCompletions(c *gin.Context) {
+	raw, provider, requested, modelID, ok := r.bindChat(c)
+	if !ok {
+		return
+	}
+	raw["model"] = modelID
+
+	body, err := json.Marshal(raw)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	req.Model = modelID
-	resp, err := provider.ChatCompletion(c.Request.Context(), &req)
+	// OpenCode and most OpenAI clients stream by default, so honor the flag
+	// instead of forcing a non-streaming reply they cannot parse.
+	if stream, _ := raw["stream"].(bool); stream {
+		r.streamResponse(c, provider, body)
+		return
+	}
+
+	resp, err := provider.DoChatCompletion(c.Request.Context(), body, false)
 	if err != nil {
 		r.logger.Error("Chat completion failed", zap.Error(err))
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
+	defer resp.Body.Close()
 
-	resp.Model = req.Model
-	c.JSON(http.StatusOK, resp)
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Echo the model name the client asked for.
+	var out map[string]interface{}
+	if json.Unmarshal(respBody, &out) == nil && out != nil {
+		out["model"] = requested
+		if rewritten, err := json.Marshal(out); err == nil {
+			respBody = rewritten
+		}
+	}
+
+	c.Data(http.StatusOK, "application/json; charset=utf-8", respBody)
 }
 
 func (r *Router) streamChatCompletions(c *gin.Context) {
-	user := auth.GetUser(c.Request.Context())
-	if user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+	raw, provider, _, modelID, ok := r.bindChat(c)
+	if !ok {
 		return
 	}
+	raw["model"] = modelID
+	raw["stream"] = true
 
-	var req providers.ChatRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	body, err := json.Marshal(raw)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	r.streamResponse(c, provider, body)
+}
 
-	providerName, modelID := parseModelID(req.Model)
-	if providerName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid model format. Use provider/model-id"})
-		return
-	}
-
-	provider, status, msg := r.providerForUser(providerName, user)
-	if provider == nil {
-		c.JSON(status, gin.H{"error": msg})
-		return
-	}
-
-	req.Model = modelID
-	resp, err := provider.StreamChatCompletion(c.Request.Context(), &req)
+func (r *Router) streamResponse(c *gin.Context, provider *providers.Provider, body []byte) {
+	resp, err := provider.DoChatCompletion(c.Request.Context(), body, true)
 	if err != nil {
 		r.logger.Error("Stream chat failed", zap.Error(err))
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
@@ -707,6 +767,7 @@ func (r *Router) streamChatCompletions(c *gin.Context) {
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
 	c.Status(http.StatusOK)
 
 	flusher, ok := c.Writer.(http.Flusher)
