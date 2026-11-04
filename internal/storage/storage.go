@@ -281,6 +281,12 @@ func (s *Store) SaveModels(provider string, models []*shared.Model) error {
 	}
 	defer tx.Rollback()
 
+	// Replace the provider's list: models dropped by the availability check
+	// must disappear from storage too.
+	if _, err := tx.Exec(s.q(`DELETE FROM models WHERE provider = ?`), provider); err != nil {
+		return err
+	}
+
 	var query string
 	if s.isPg() {
 		query = `INSERT INTO models (id, provider, data, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)

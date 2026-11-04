@@ -111,18 +111,125 @@ func (r *Registry) syncProvider(ctx context.Context, provider *providers.Provide
 		return
 	}
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	// /models lists everything the provider advertises, including models this
+	// account (or plan) cannot call. Probe before publishing the list.
+	if provider.Name == "nvidia" {
+		models = r.verifyModels(ctx, &p, models)
+	}
 
+	r.mu.Lock()
+	for key, m := range r.models {
+		if m.Provider == provider.Name {
+			delete(r.models, key)
+		}
+	}
 	for _, m := range models {
 		key := fmt.Sprintf("%s/%s", provider.Name, m.ProviderID)
 		r.models[key] = m
 	}
 	r.lastSync[provider.Name] = time.Now()
+	r.mu.Unlock()
 
 	if err := r.store.SaveModels(provider.Name, models); err != nil {
 		r.logger.Error("Failed to save models", zap.String("provider", provider.Name), zap.Error(err))
 	}
+}
+
+const (
+	verifyWorkers = 8
+	verifyTimeout = 10 * time.Second
+)
+
+type verifyVerdict struct {
+	model *shared.Model
+	keep  bool
+	auth  bool
+}
+
+// verifyModels asks every model for a 1-line answer and keeps only those that
+// respond. Network errors, 429 and 5xx keep the model: the probe proved
+// nothing. If the key is rejected the whole list is kept untouched.
+func (r *Registry) verifyModels(ctx context.Context, p *providers.Provider, list []*shared.Model) []*shared.Model {
+	if len(list) == 0 {
+		return list
+	}
+
+	jobs := make(chan *shared.Model)
+	out := make(chan verifyVerdict, len(list))
+
+	var wg sync.WaitGroup
+	for i := 0; i < verifyWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for m := range jobs {
+				pctx, cancel := context.WithTimeout(ctx, verifyTimeout)
+				code, err := p.ProbeModel(pctx, m.ProviderID)
+				cancel()
+
+				// NVIDIA rate-limits bursts; one short retry is usually enough.
+				if code == http.StatusTooManyRequests {
+					time.Sleep(1500 * time.Millisecond)
+					pctx, cancel = context.WithTimeout(ctx, verifyTimeout)
+					code, err = p.ProbeModel(pctx, m.ProviderID)
+					cancel()
+				}
+
+				out <- verifyVerdict{
+					model: m,
+					keep:  probeKeeps(code, err),
+					auth:  code == http.StatusUnauthorized || code == http.StatusForbidden,
+				}
+			}
+		}()
+	}
+	go func() {
+		for _, m := range list {
+			jobs <- m
+		}
+		close(jobs)
+	}()
+	wg.Wait()
+	close(out)
+
+	kept := make([]*shared.Model, 0, len(list))
+	dropped := 0
+	for v := range out {
+		if v.auth {
+			r.logger.Warn("Model check: key rejected, keeping the whole list", zap.String("provider", p.Name))
+			return list
+		}
+		if v.keep {
+			kept = append(kept, v.model)
+		} else {
+			dropped++
+		}
+	}
+
+	// If nothing responded, the endpoint or model-id format is broken rather
+	// than every model at once. Keep the list instead of wiping it.
+	if dropped == len(list) {
+		r.logger.Warn("Model check rejected every model, keeping the list", zap.String("provider", p.Name))
+		return list
+	}
+
+	r.logger.Info("Model check finished",
+		zap.String("provider", p.Name),
+		zap.Int("working", len(kept)),
+		zap.Int("dropped", dropped))
+	return kept
+}
+
+func probeKeeps(code int, err error) bool {
+	if err != nil {
+		return true
+	}
+	switch code {
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusMethodNotAllowed,
+		http.StatusGone, http.StatusUnprocessableEntity:
+		return false
+	}
+	return true
 }
 
 func (r *Registry) LoadFromStorage() error {

@@ -397,16 +397,16 @@ class ALRouter {
     async syncModels() {
         const btn = document.getElementById('syncModelsBtn');
         btn.disabled = true;
-        btn.textContent = '⏳ Синхронизация...';
+        btn.textContent = '⏳ Проверка моделей...';
         try {
             await this.api('/api/sync', { method: 'POST' });
             await this.loadModels();
-            this.toast('Модели синхронизированы', 'success');
+            this.toast('Модели синхронизированы, недоступные убраны', 'success');
         } catch (e) {
             this.toast('Ошибка: ' + e.message, 'error');
         } finally {
             btn.disabled = false;
-            btn.textContent = '🔄 Синхронизировать модели';
+            btn.textContent = '🔄 Проверить модели';
         }
     }
 

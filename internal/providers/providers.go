@@ -184,6 +184,40 @@ func (p *Provider) ChatCompletion(ctx context.Context, req *ChatRequest) (*ChatR
 	return &chatResp, nil
 }
 
+// ProbeModel sends a minimal chat completion and reports the HTTP status code.
+// Used to weed out models the provider no longer serves.
+func (p *Provider) ProbeModel(ctx context.Context, modelID string) (int, error) {
+	req := ChatRequest{
+		Model:     modelID,
+		Messages:  []Message{{Role: "user", Content: "ping"}},
+		MaxTokens: 16,
+	}
+	body, _ := json.Marshal(&req)
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", p.APIBase+"/chat/completions", strings.NewReader(string(body)))
+	if err != nil {
+		return 0, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+	if p.APIKey != "" {
+		switch p.AuthType {
+		case "bearer":
+			httpReq.Header.Set("Authorization", "Bearer "+p.APIKey)
+		case "api_key":
+			httpReq.Header.Set("X-API-Key", p.APIKey)
+		}
+	}
+
+	resp, err := p.HTTPClient.Do(httpReq)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 8192))
+	return resp.StatusCode, nil
+}
+
 func (p *Provider) StreamChatCompletion(ctx context.Context, req *ChatRequest) (*http.Response, error) {
 	req.Stream = true
 	url := p.APIBase + "/chat/completions"

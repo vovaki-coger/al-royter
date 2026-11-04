@@ -461,7 +461,7 @@ func (r *Router) syncModels(c *gin.Context) {
 		userKeys["nvidia"] = user.NvidiaKey
 	}
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(c.Request.Context()), 5*time.Minute)
 	defer cancel()
 
 	r.modelRegistry.SyncAllWithKeys(ctx, userKeys)
