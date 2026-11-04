@@ -61,6 +61,9 @@ func main() {
 
 	providerManager := providers.NewManager(toProviderConfigs(cfg.Providers), logger)
 	modelRegistry := models.NewRegistry(store, providerManager, logger)
+	if err := modelRegistry.LoadFromStorage(); err != nil {
+		logger.Warn("Failed to load models from storage", zap.Error(err))
+	}
 	authManager := auth.NewManager(&cfg.JWT, store, logger)
 	googleOAuth := auth.NewGoogleOAuth(cfg.Google, store, authManager, logger)
 	routerEngine := router.New(cfg, store, modelRegistry, providerManager, authManager, googleOAuth, logger)
