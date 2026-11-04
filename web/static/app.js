@@ -56,12 +56,13 @@ class ALRouter {
 
         document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
         document.getElementById('syncModelsBtn').addEventListener('click', () => this.syncModels());
-        document.getElementById('copyMasterKeyBtn').addEventListener('click', () => this.copyMasterKey());
+        document.getElementById('copyMasterKeyBtn').addEventListener('click', () => this.showMasterKey());
         document.getElementById('openOpenRouterBtn').addEventListener('click', () => window.open('https://openrouter.ai/settings/keys', '_blank'));
         document.getElementById('saveNvidiaKeyBtn').addEventListener('click', () => this.saveNvidiaKey());
         document.getElementById('addCustomProviderBtn').addEventListener('click', () => this.addCustomProvider());
         document.getElementById('copyAllConfigBtn').addEventListener('click', () => this.copyAllOpenRouterConfig());
         document.getElementById('deleteAccountBtn').addEventListener('click', () => this.confirmDeleteAccount());
+        document.getElementById('copyMasterKeySettingsBtn').addEventListener('click', () => this.showMasterKey());
         document.getElementById('modelSearch').addEventListener('input', () => this.filterModels());
         document.getElementById('modelProviderFilter').addEventListener('change', () => this.filterModels());
 
@@ -536,8 +537,34 @@ class ALRouter {
         }
     }
 
-    copyMasterKey() {
-        this.copyText(this.user.master_key);
+    showMasterKey() {
+        const key = (this.user && this.user.master_key) || '';
+        if (!key) {
+            this.toast('Мастер-ключ не найден', 'error');
+            return;
+        }
+
+        this.showModal('Мастер-ключ', `
+            <p>Ключ для подключения OpenCode / OpenRouter к AL-Router:</p>
+            <input id="masterKeyField" class="form-input" readonly value="${this.escapeHtml(key)}" style="margin-top: 12px;">
+            <p class="hint" style="margin-top: 12px;">Если копирование не сработало — текст уже выделен, нажми <b>Ctrl+C</b>.</p>
+        `, `
+            <button class="btn btn-secondary" onclick="app.hideModal()">Закрыть</button>
+            <button class="btn btn-primary" onclick="app.copyMasterKeyField()">Копировать</button>
+        `);
+
+        const field = document.getElementById('masterKeyField');
+        field.focus();
+        field.select();
+    }
+
+    copyMasterKeyField() {
+        const field = document.getElementById('masterKeyField');
+        if (!field) return;
+        this.copyText(field.value).then(() => {
+            field.focus();
+            field.select();
+        });
     }
 
     copyField(fieldId) {
