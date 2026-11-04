@@ -49,7 +49,7 @@ func NewManager(configs []ProviderConfig, logger *zap.Logger) *Manager {
 			ModelsEndpoint: cfg.ModelsEndpoint,
 			AuthType:       cfg.AuthType,
 			HTTPClient: &http.Client{
-				Timeout: 30 * time.Second,
+				Timeout: 5 * time.Minute,
 			},
 			logger: logger.Named("provider." + cfg.Name),
 		}
@@ -63,6 +63,14 @@ func (m *Manager) Get(name string) (*Provider, bool) {
 	defer m.mu.RUnlock()
 	p, ok := m.providers[name]
 	return p, ok
+}
+
+// WithKey returns a copy carrying the given key. Never assign APIKey on a
+// provider obtained from Manager.Get: that object is shared by every user.
+func (p *Provider) WithKey(key string) *Provider {
+	cp := *p
+	cp.APIKey = key
+	return &cp
 }
 
 func (m *Manager) GetAll() []*Provider {
@@ -109,7 +117,7 @@ func (p *Provider) FetchModels(ctx context.Context) ([]*shared.Model, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("provider %s returned %d: %s", p.Name, resp.StatusCode, string(body))
+		return nil, providerError(p.Name, resp.StatusCode, body)
 	}
 
 	var result struct {
@@ -134,8 +142,13 @@ func (p *Provider) FetchModels(ctx context.Context) ([]*shared.Model, error) {
 }
 
 func (p *Provider) ChatCompletion(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
+	// Always non-streaming here. Providers that receive stream:true answer with
+	// SSE, and json.Unmarshal then fails with "invalid character 'd'".
+	bodyReq := *req
+	bodyReq.Stream = false
+
 	url := p.APIBase + "/chat/completions"
-	body, _ := json.Marshal(req)
+	body, _ := json.Marshal(&bodyReq)
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(body)))
 	if err != nil {
@@ -161,12 +174,12 @@ func (p *Provider) ChatCompletion(ctx context.Context, req *ChatRequest) (*ChatR
 
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("provider %s returned %d: %s", p.Name, resp.StatusCode, string(respBody))
+		return nil, providerError(p.Name, resp.StatusCode, respBody)
 	}
 
 	var chatResp ChatResponse
 	if err := json.Unmarshal(respBody, &chatResp); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("provider %s: ответ не JSON (%v): %.200s", p.Name, err, string(respBody))
 	}
 	return &chatResp, nil
 }
@@ -194,7 +207,58 @@ func (p *Provider) StreamChatCompletion(ctx context.Context, req *ChatRequest) (
 		}
 	}
 
-	return p.HTTPClient.Do(httpReq)
+	resp, err := p.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, providerError(p.Name, resp.StatusCode, body)
+	}
+	return resp, nil
+}
+
+// providerError builds a short, readable error from a provider response.
+// NVIDIA answers errors with {"detail": "..."}; OpenAI-style ones use
+// {"error":{"message":"..."}}. HTML/proxy bodies are truncated.
+func providerError(name string, code int, body []byte) error {
+	var payload struct {
+		Detail  string          `json:"detail"`
+		Message string          `json:"message"`
+		Error   json.RawMessage `json:"error"`
+	}
+	if json.Unmarshal(body, &payload) == nil {
+		msg := payload.Detail
+		if msg == "" {
+			msg = payload.Message
+		}
+		if msg == "" && len(payload.Error) > 0 {
+			var s string
+			if json.Unmarshal(payload.Error, &s) == nil {
+				msg = s
+			} else {
+				var o struct {
+					Message string `json:"message"`
+				}
+				if json.Unmarshal(payload.Error, &o) == nil {
+					msg = o.Message
+				}
+			}
+		}
+		if msg != "" {
+			return fmt.Errorf("provider %s error %d: %s", name, code, msg)
+		}
+	}
+
+	text := strings.TrimSpace(string(body))
+	if len(text) > 400 {
+		text = text[:400] + "…"
+	}
+	if text == "" {
+		text = http.StatusText(code)
+	}
+	return fmt.Errorf("provider %s returned %d: %s", name, code, text)
 }
 
 

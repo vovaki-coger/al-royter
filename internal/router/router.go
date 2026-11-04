@@ -487,22 +487,10 @@ func (r *Router) chatCompletions(c *gin.Context) {
 		return
 	}
 
-	provider, ok := r.providerManager.Get(providerName)
-	if !ok {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Provider not found"})
+	provider, status, msg := r.providerForUser(providerName, user)
+	if provider == nil {
+		c.JSON(status, gin.H{"error": msg})
 		return
-	}
-
-	if provider.APIKey == "" {
-		keys, _ := r.store.GetProviderKeys(user.ID)
-		if key, ok := keys[providerName]; ok {
-			provider.APIKey = key
-		} else if providerName == "nvidia" && user.NvidiaKey != "" {
-			provider.APIKey = user.NvidiaKey
-		} else {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "No API key configured for provider " + providerName})
-			return
-		}
 	}
 
 	req.Model = modelID
@@ -536,22 +524,10 @@ func (r *Router) streamChatCompletions(c *gin.Context) {
 		return
 	}
 
-	provider, ok := r.providerManager.Get(providerName)
-	if !ok {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Provider not found"})
+	provider, status, msg := r.providerForUser(providerName, user)
+	if provider == nil {
+		c.JSON(status, gin.H{"error": msg})
 		return
-	}
-
-	if provider.APIKey == "" {
-		keys, _ := r.store.GetProviderKeys(user.ID)
-		if key, ok := keys[providerName]; ok {
-			provider.APIKey = key
-		} else if providerName == "nvidia" && user.NvidiaKey != "" {
-			provider.APIKey = user.NvidiaKey
-		} else {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "No API key configured for provider " + providerName})
-			return
-		}
 	}
 
 	req.Model = modelID
@@ -596,6 +572,30 @@ func parseModelID(model string) (provider, modelID string) {
 		return "", ""
 	}
 	return parts[0], parts[1]
+}
+
+// providerForUser returns a provider copy that carries this user's key.
+// Mutating the shared provider would leak keys between accounts.
+func (r *Router) providerForUser(name string, user *shared.User) (*providers.Provider, int, string) {
+	p, ok := r.providerManager.Get(name)
+	if !ok {
+		return nil, http.StatusNotFound, "Provider not found"
+	}
+
+	key := p.APIKey
+	if key == "" {
+		keys, _ := r.store.GetProviderKeys(user.ID)
+		if k := keys[name]; k != "" {
+			key = k
+		} else if name == "nvidia" && user.NvidiaKey != "" {
+			key = user.NvidiaKey
+		}
+	}
+	if key == "" {
+		return nil, http.StatusUnauthorized, "No API key configured for provider " + name
+	}
+
+	return p.WithKey(key), 0, ""
 }
 
 func (r *Router) spaHandler() gin.HandlerFunc {

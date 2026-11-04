@@ -289,7 +289,8 @@ class ALRouter {
         this.setPlaygroundLoading(true);
 
         try {
-            const res = await fetch('/api/chat/completions', {
+            const endpoint = stream ? '/api/chat/completions/stream' : '/api/chat/completions';
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -305,8 +306,15 @@ class ALRouter {
             });
 
             if (!res.ok) {
-                const err = await res.json().catch(() => ({ error: 'Request failed' }));
-                throw new Error(err.error || `HTTP ${res.status}`);
+                const text = await res.text();
+                let msg = `HTTP ${res.status}`;
+                try {
+                    const j = JSON.parse(text);
+                    msg = j.error || j.message || msg;
+                } catch {
+                    if (text) msg = text.slice(0, 300);
+                }
+                throw new Error(msg);
             }
 
             if (stream) {
@@ -320,8 +328,8 @@ class ALRouter {
                     const lines = buffer.split('\n');
                     buffer = lines.pop() || '';
                     for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const data = line.slice(6);
+                        if (line.startsWith('data:')) {
+                            const data = line.slice(5).trim();
                             if (data === '[DONE]') continue;
                             try {
                                 const parsed = JSON.parse(data);
