@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"sort"
@@ -117,6 +118,7 @@ func (r *Router) setupRoutes() {
 		userGroup.GET("/keys", r.listKeys)
 		userGroup.POST("/nvidia-key", r.setNvidiaKey)
 		userGroup.GET("/openrouter-config", r.getOpenRouterConfig)
+		userGroup.GET("/opencode-config", r.getOpenCodeConfig)
 		userGroup.GET("/models", r.listUserModels)
 		userGroup.POST("/sync", r.syncModels)
 		userGroup.POST("/chat/completions",
@@ -426,6 +428,169 @@ func (r *Router) getOpenRouterConfig(c *gin.Context) {
 	})
 }
 
+// getOpenCodeConfig builds a ready opencode.json for this user.
+// OpenCode only auto-discovers local runtimes (Ollama, LM Studio, vLLM),
+// so every model has to be listed explicitly under providers.<id>.models.
+func (r *Router) getOpenCodeConfig(c *gin.Context) {
+	user := auth.GetUser(c.Request.Context())
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	baseURL := "https://" + c.Request.Host + "/v1"
+	if host := c.Request.Host; strings.Contains(host, "localhost") || strings.Contains(host, "127.0.0.1") {
+		baseURL = "http://" + host + "/v1"
+	}
+
+	keys, _ := r.store.GetProviderKeys(user.ID)
+	if user.NvidiaKey != "" {
+		keys["nvidia"] = user.NvidiaKey
+	}
+
+	candidates := make([]*shared.Model, 0)
+	for _, m := range r.modelRegistry.GetAll() {
+		if !openCodeChatModel(m.ID) {
+			continue
+		}
+		if _, ok := keys[m.Provider]; !ok && m.Provider != "nvidia" {
+			continue
+		}
+		candidates = append(candidates, m)
+	}
+	sort.Slice(candidates, func(i, j int) bool { return candidates[i].ID < candidates[j].ID })
+
+	if len(candidates) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"base_url": baseURL,
+			"count":    0,
+			"json":     "",
+			"error":    "Нет доступных моделей. Сохраните ключ провайдера и нажмите «Синхронизировать модели».",
+		})
+		return
+	}
+
+	modelConfigs := make(map[string]interface{}, len(candidates))
+	ids := make([]string, 0, len(candidates))
+	for _, m := range candidates {
+		ids = append(ids, m.ID)
+
+		ctxLimit := m.ContextWindow
+		if ctxLimit <= 0 {
+			ctxLimit = 131072
+		}
+		outLimit := m.MaxOutputTokens
+		if outLimit <= 0 {
+			outLimit = 8192
+		}
+		input := []string{"text"}
+		if openCodeVisionModel(m.ID) {
+			input = append(input, "image")
+		}
+
+		modelConfigs[m.ID] = map[string]interface{}{
+			"modelID": m.ID,
+			"name":    openCodeModelName(m.ID),
+			"capabilities": map[string]interface{}{
+				"tools":  true,
+				"input":  input,
+				"output": []string{"text"},
+			},
+			"limit": map[string]interface{}{
+				"context": ctxLimit,
+				"output":  outLimit,
+			},
+		}
+	}
+
+	defaultModel := openCodeDefaultModel(ids)
+
+	cfg := map[string]interface{}{
+		"$schema": "https://opencode.ai/config.json",
+		"model":   "al-router/" + defaultModel,
+		"providers": map[string]interface{}{
+			"al-router": map[string]interface{}{
+				"name":    "AL-Router",
+				"package": "@opencode/ai/providers/openai-compatible",
+				"settings": map[string]interface{}{
+					"baseURL": baseURL,
+					"apiKey":  user.MasterKey,
+				},
+				// NVIDIA expects max_tokens, while OpenCode defaults to
+				// max_completion_tokens for unknown OpenAI-compatible APIs.
+				"compatibility": map[string]interface{}{
+					"maxTokensField": "max_tokens",
+				},
+				"models": modelConfigs,
+			},
+		},
+	}
+
+	raw, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to build config"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"base_url":      baseURL,
+		"count":         len(ids),
+		"default_model": defaultModel,
+		"model_ref":     "al-router/" + defaultModel,
+		"json":          string(raw),
+	})
+}
+
+// Models that are not chat assistants (guards, parsers, translators,
+// detectors, embeddings) would only break an OpenCode session.
+var openCodeSkipTags = []string{
+	"guard", "safety", "parse", "translate", "detector",
+	"calibration", "embed", "rerank", "diffusion", "video",
+}
+
+func openCodeChatModel(id string) bool {
+	lower := strings.ToLower(id)
+	for _, tag := range openCodeSkipTags {
+		if strings.Contains(lower, tag) {
+			return false
+		}
+	}
+	return true
+}
+
+func openCodeVisionModel(id string) bool {
+	lower := strings.ToLower(id)
+	return strings.Contains(lower, "vision") || strings.Contains(lower, "-vl") || strings.Contains(lower, "omni")
+}
+
+func openCodeModelName(id string) string {
+	if i := strings.LastIndex(id, "/"); i >= 0 {
+		return id[i+1:]
+	}
+	return id
+}
+
+func openCodeDefaultModel(ids []string) string {
+	preferred := []string{
+		"nemotron-3-ultra",
+		"nemotron-3.5-lightning",
+		"glm-5.3-flash",
+		"deepseek",
+		"minimax",
+		"gpt-oss",
+		"mistral-large",
+		"llama-3.2-90b-vision",
+	}
+	for _, want := range preferred {
+		for _, id := range ids {
+			if strings.Contains(id, want) {
+				return id
+			}
+		}
+	}
+	return ids[0]
+}
+
 func (r *Router) listUserModels(c *gin.Context) {
 	user := auth.GetUser(c.Request.Context())
 	if user == nil {
@@ -567,6 +732,9 @@ func (r *Router) streamChatCompletions(c *gin.Context) {
 }
 
 func parseModelID(model string) (provider, modelID string) {
+	// OpenCode model references are prefixed with the provider ID from
+	// opencode.json (`al-router/nvidia/...`); accept the bare ID too.
+	model = strings.TrimPrefix(model, "al-router/")
 	parts := strings.SplitN(model, "/", 2)
 	if len(parts) != 2 {
 		return "", ""

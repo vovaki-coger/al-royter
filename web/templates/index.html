@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AL-Router — Unified AI Gateway</title>
-    <link rel="stylesheet" href="/static/style.css?v=6">
+    <link rel="stylesheet" href="/static/style.css?v=7">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔀</text></svg>">
 </head>
 <body>
@@ -20,6 +20,7 @@
                     <a href="#providers" class="nav-link" data-tab="providers">Провайдеры</a>
                     <a href="#models" class="nav-link" data-tab="models">Модели</a>
                     <a href="#playground" class="nav-link" data-tab="playground">Playground</a>
+                    <a href="#opencode" class="nav-link" data-tab="opencode">OpenCode</a>
                     <a href="#openrouter" class="nav-link" data-tab="openrouter">OpenRouter</a>
                     <a href="#settings" class="nav-link" data-tab="settings">Настройки</a>
                 </nav>
@@ -107,6 +108,57 @@
                         <span id="modelCount" class="model-count">0 моделей</span>
                     </div>
                     <div class="models-grid" id="modelsGrid"></div>
+                </section>
+
+                <section id="tab-opencode" class="tab-content">
+                    <div class="page-header">
+                        <h1>Интеграция с OpenCode</h1>
+                        <p class="subtitle">Готовый opencode.json со всеми вашими моделями</p>
+                    </div>
+                    <div class="openrouter-guide">
+                        <div class="guide-step">
+                            <span class="step-number">1</span>
+                            <div class="step-content">
+                                <h3>Скопируйте конфиг</h3>
+                                <p>Мастер-ключ уже внутри — никому его не передавайте.</p>
+                                <div class="opencode-actions">
+                                    <button class="btn btn-primary" id="copyOpenCodeConfigBtn">📋 Скопировать opencode.json</button>
+                                    <button class="btn btn-secondary" id="downloadOpenCodeConfigBtn">⬇ Скачать файл</button>
+                                </div>
+                                <pre class="code-block" id="openCodeConfig">Загрузка...</pre>
+                            </div>
+                        </div>
+                        <div class="guide-step">
+                            <span class="step-number">2</span>
+                            <div class="step-content">
+                                <h3>Положите файл</h3>
+                                <p>В корень проекта как <code>opencode.json</code> или глобально:</p>
+                                <ul class="hint-list">
+                                    <li>Windows: <code>%USERPROFILE%\.config\opencode\opencode.json</code></li>
+                                    <li>macOS / Linux: <code>~/.config/opencode/opencode.json</code></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="guide-step">
+                            <span class="step-number">3</span>
+                            <div class="step-content">
+                                <h3>Перезапустите OpenCode и выберите модель</h3>
+                                <p>В <code>/models</code> появится провайдер <b>AL-Router</b>. Модель по умолчанию уже прописана в конфиге.</p>
+                                <div class="config-field">
+                                    <label>Ссылка на модель для OpenCode</label>
+                                    <code id="field-openCodeModelRef">—</code>
+                                    <button class="btn btn-secondary" onclick="app.copyField('openCodeModelRef')">Копировать</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="guide-step">
+                            <span class="step-number">4</span>
+                            <div class="step-content">
+                                <h3>Почему ID выглядит иначе</h3>
+                                <p>В OpenCode модель всегда записывается как <code>провайдер/модель</code>. Провайдер здесь — <b>al-router</b>, поэтому в списке будет <code>al-router/nvidia/nvidia/...</code>. В запросах к сайту (curl, OpenRouter) тот же ID пишется без префикса: <code>nvidia/nvidia/...</code>. Сайт понимает оба варианта.</p>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 <section id="tab-openrouter" class="tab-content">
@@ -243,6 +295,6 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=6"></script>
+    <script src="/static/app.js?v=7"></script>
 </body>
 </html>

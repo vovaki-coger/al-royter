@@ -4,6 +4,7 @@ class ALRouter {
         this.user = null;
         this.providers = [];
         this.models = [];
+        this.openCodeConfig = '';
         this.init();
     }
 
@@ -61,6 +62,8 @@ class ALRouter {
         document.getElementById('saveNvidiaKeyBtn').addEventListener('click', () => this.saveNvidiaKey());
         document.getElementById('addCustomProviderBtn').addEventListener('click', () => this.addCustomProvider());
         document.getElementById('copyAllConfigBtn').addEventListener('click', () => this.copyAllOpenRouterConfig());
+        document.getElementById('copyOpenCodeConfigBtn').addEventListener('click', () => this.copyOpenCodeConfig());
+        document.getElementById('downloadOpenCodeConfigBtn').addEventListener('click', () => this.downloadOpenCodeConfig());
         document.getElementById('deleteAccountBtn').addEventListener('click', () => this.confirmDeleteAccount());
         document.getElementById('copyMasterKeySettingsBtn').addEventListener('click', () => this.showMasterKey());
         document.getElementById('modelSearch').addEventListener('input', () => this.filterModels());
@@ -123,7 +126,8 @@ class ALRouter {
             await Promise.all([
                 this.loadProviders(),
                 this.loadModels(),
-                this.loadOpenRouterConfig()
+                this.loadOpenRouterConfig(),
+                this.loadOpenCodeConfig()
             ]);
             this.updateStats();
         } catch (e) {
@@ -292,6 +296,42 @@ class ALRouter {
     copyModelId(id) {
         if (!id || id === '—') return;
         this.copyText(id);
+    }
+
+    async loadOpenCodeConfig() {
+        const pre = document.getElementById('openCodeConfig');
+        const copyBtn = document.getElementById('copyOpenCodeConfigBtn');
+        const downloadBtn = document.getElementById('downloadOpenCodeConfigBtn');
+        try {
+            const data = await this.api('/api/opencode-config');
+            this.openCodeConfig = data.json || '';
+            document.getElementById('field-openCodeModelRef').textContent = data.model_ref || '—';
+            pre.textContent = data.json || data.error || 'Нет доступных моделей';
+            copyBtn.disabled = !data.json;
+            downloadBtn.disabled = !data.json;
+        } catch (e) {
+            pre.textContent = 'Не удалось загрузить конфиг: ' + e.message;
+            copyBtn.disabled = true;
+            downloadBtn.disabled = true;
+        }
+    }
+
+    copyOpenCodeConfig() {
+        if (!this.openCodeConfig) return;
+        this.copyText(this.openCodeConfig);
+    }
+
+    downloadOpenCodeConfig() {
+        if (!this.openCodeConfig) return;
+        const blob = new Blob([this.openCodeConfig], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'opencode.json';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
     // navigator.clipboard often fails (focus/permissions), so fall back to the
@@ -603,6 +643,9 @@ class ALRouter {
         document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
         if (tab === 'playground') {
             this.loadPlaygroundModels();
+        }
+        if (tab === 'opencode') {
+            this.loadOpenCodeConfig();
         }
     }
 
