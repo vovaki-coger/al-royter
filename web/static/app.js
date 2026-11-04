@@ -556,6 +556,12 @@ class ALRouter {
         const field = document.getElementById('masterKeyField');
         field.focus();
         field.select();
+
+        // Try to copy right away: the click on the button is the gesture.
+        this.copyText(key).then(() => {
+            field.focus();
+            field.select();
+        });
     }
 
     copyMasterKeyField() {

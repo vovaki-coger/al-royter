@@ -1123,3 +1123,8 @@ body {
     align-self: flex-start;
     margin-left: 0;
 }
+
+#settingsMasterKey {
+    user-select: all;
+    cursor: copy;
+}
