@@ -119,6 +119,12 @@ func (r *Router) setupRoutes() {
 		userGroup.GET("/openrouter-config", r.getOpenRouterConfig)
 		userGroup.GET("/models", r.listUserModels)
 		userGroup.POST("/sync", r.syncModels)
+		userGroup.POST("/chat/completions",
+			r.apiLimiter.MiddlewareByKey(r.apiKeyOf),
+			r.chatCompletions)
+		userGroup.POST("/chat/completions/stream",
+			r.apiLimiter.MiddlewareByKey(r.apiKeyOf),
+			r.streamChatCompletions)
 	}
 
 	r.engine.GET("/privacy", func(c *gin.Context) { c.File("./web/static/privacy.html") })

@@ -289,7 +289,7 @@ class ALRouter {
         this.setPlaygroundLoading(true);
 
         try {
-            const res = await fetch('/v1/chat/completions', {
+            const res = await fetch('/api/chat/completions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
