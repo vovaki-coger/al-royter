@@ -97,7 +97,7 @@
                 <section id="tab-models" class="tab-content">
                     <div class="page-header">
                         <h1>Доступные модели</h1>
-                        <p class="subtitle">Модели, доступные через ваши ключи</p>
+                        <p class="subtitle">Модели, доступные через ваши ключи. ID для API — это значение поля <code>model</code> в запросах к AL-Router.</p>
                     </div>
                     <div class="models-toolbar">
                         <input type="text" id="modelSearch" placeholder="🔍 Поиск моделей..." class="search-input">
@@ -156,6 +156,11 @@
                             <div class="playground-model-select">
                                 <label>Модель</label>
                                 <select id="playgroundModel" class="form-input"></select>
+                                <div class="playground-model-id">
+                                    <span>ID для API</span>
+                                    <code id="playgroundModelId">—</code>
+                                    <button class="btn btn-secondary btn-copy-id" id="playgroundCopyModelId" disabled>Копировать</button>
+                                </div>
                             </div>
                             <div class="playground-params">
                                 <label>Temperature</label>

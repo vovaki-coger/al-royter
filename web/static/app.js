@@ -68,6 +68,10 @@ class ALRouter {
         // Playground
         document.getElementById('playgroundSend').addEventListener('click', () => this.playgroundSend());
         document.getElementById('playgroundClear').addEventListener('click', () => this.playgroundClear());
+        document.getElementById('playgroundModel').addEventListener('change', (e) => this.updatePlaygroundModelId(e.target.value));
+        document.getElementById('playgroundCopyModelId').addEventListener('click', () => {
+            this.copyModelId(document.getElementById('playgroundModelId').textContent);
+        });
         document.getElementById('playgroundInput').addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -225,7 +229,7 @@ class ALRouter {
 
             card.innerHTML = `
                 <div class="model-header">
-                    <span class="model-name">${this.escapeHtml(m.id)}</span>
+                    <span class="model-name">${this.escapeHtml(m.id.split('/').pop() || m.id)}</span>
                     <span class="model-provider">${this.escapeHtml(m.provider || 'unknown')}</span>
                 </div>
                 <div class="model-meta">
@@ -233,7 +237,13 @@ class ALRouter {
                     ${m.max_output_tokens ? `<span>📤 ${this.formatNumber(m.max_output_tokens)} out</span>` : ''}
                     ${capTags.length ? `<span>${capTags.join(' · ')}</span>` : ''}
                 </div>
+                <div class="model-api-id">
+                    <span class="model-api-label">ID для API</span>
+                    <code title="${this.escapeHtml(m.id)}">${this.escapeHtml(m.id)}</code>
+                    <button class="btn btn-secondary btn-copy-id">Копировать</button>
+                </div>
             `;
+            card.querySelector('.btn-copy-id').addEventListener('click', () => this.copyModelId(m.id));
             grid.appendChild(card);
         });
     }
@@ -256,6 +266,7 @@ class ALRouter {
                 await this.loadModels();
             } catch (e) {
                 select.innerHTML = '<option value="">Ошибка загрузки моделей</option>';
+                this.updatePlaygroundModelId('');
                 return;
             }
         }
@@ -267,6 +278,20 @@ class ALRouter {
             opt.textContent = `${m.id} (${m.provider})`;
             select.appendChild(opt);
         });
+        this.updatePlaygroundModelId(select.value);
+    }
+
+    updatePlaygroundModelId(id) {
+        const code = document.getElementById('playgroundModelId');
+        const btn = document.getElementById('playgroundCopyModelId');
+        code.textContent = id || '—';
+        btn.disabled = !id;
+    }
+
+    copyModelId(id) {
+        if (!id || id === '—') return;
+        navigator.clipboard.writeText(id);
+        this.toast('ID скопирован: ' + id, 'success');
     }
 
     async playgroundSend() {
