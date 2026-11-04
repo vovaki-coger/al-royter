@@ -192,6 +192,8 @@ class ALRouter {
             return matchSearch && matchProvider;
         });
 
+        document.getElementById('modelCount').textContent = `${filtered.length} / ${(this.models || []).length} моделей`;
+
         if (filtered.length === 0) {
             grid.innerHTML = '<div class="empty-state">Модели не найдены</div>';
             return;

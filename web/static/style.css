@@ -466,6 +466,13 @@ body {
     min-width: 180px;
 }
 
+.model-count {
+    align-self: center;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    padding: 0 8px;
+}
+
 .models-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
