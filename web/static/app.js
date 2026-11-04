@@ -290,8 +290,46 @@ class ALRouter {
 
     copyModelId(id) {
         if (!id || id === '—') return;
-        navigator.clipboard.writeText(id);
-        this.toast('ID скопирован: ' + id, 'success');
+        this.copyText(id);
+    }
+
+    // navigator.clipboard often fails (focus/permissions), so fall back to the
+    // old textarea + execCommand trick and only then report success.
+    async copyText(text) {
+        let ok = false;
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+                ok = true;
+            }
+        } catch (e) {
+            ok = false;
+        }
+
+        if (!ok) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.top = '-1000px';
+            ta.style.left = '-1000px';
+            document.body.appendChild(ta);
+            ta.select();
+            ta.setSelectionRange(0, ta.value.length);
+            try {
+                ok = document.execCommand('copy');
+            } catch (e) {
+                ok = false;
+            }
+            document.body.removeChild(ta);
+        }
+
+        if (ok) {
+            this.toast('Скопировано', 'success');
+        } else {
+            this.toast('Не удалось скопировать — выдели и скопируй вручную', 'error');
+        }
+        return ok;
     }
 
     async playgroundSend() {
@@ -499,15 +537,13 @@ class ALRouter {
     }
 
     copyMasterKey() {
-        navigator.clipboard.writeText(this.user.master_key);
-        this.toast('Мастер-ключ скопирован', 'success');
+        this.copyText(this.user.master_key);
     }
 
     copyField(fieldId) {
         const el = document.getElementById(`field-${fieldId}`);
         if (el) {
-            navigator.clipboard.writeText(el.textContent);
-            this.toast('Скопировано', 'success');
+            this.copyText(el.textContent);
         }
     }
 
@@ -518,8 +554,7 @@ class ALRouter {
             const label = el.closest('.config-field').querySelector('label').textContent;
             text += `${label}: ${el.textContent}\n`;
         });
-        navigator.clipboard.writeText(text);
-        this.toast('Вся конфигурация скопирована', 'success');
+        this.copyText(text);
     }
 
     confirmDeleteAccount() {
