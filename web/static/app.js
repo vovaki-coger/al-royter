@@ -249,6 +249,17 @@ class ALRouter {
 
     async loadPlaygroundModels() {
         const select = document.getElementById('playgroundModel');
+        select.innerHTML = '<option value="">Загрузка моделей...</option>';
+        
+        if (!this.models || this.models.length === 0) {
+            try {
+                await this.loadModels();
+            } catch (e) {
+                select.innerHTML = '<option value="">Ошибка загрузки моделей</option>';
+                return;
+            }
+        }
+        
         select.innerHTML = '<option value="">Выберите модель...</option>';
         (this.models || []).forEach(m => {
             const opt = document.createElement('option');
