@@ -65,6 +65,19 @@ class ALRouter {
         document.getElementById('modelSearch').addEventListener('input', () => this.filterModels());
         document.getElementById('modelProviderFilter').addEventListener('change', () => this.filterModels());
 
+        // Playground
+        document.getElementById('playgroundSend').addEventListener('click', () => this.playgroundSend());
+        document.getElementById('playgroundClear').addEventListener('click', () => this.playgroundClear());
+        document.getElementById('playgroundInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.playgroundSend();
+            }
+        });
+        document.getElementById('playgroundTemp').addEventListener('input', (e) => {
+            document.getElementById('playgroundTempVal').textContent = e.target.value;
+        });
+
         document.getElementById('modalClose').addEventListener('click', () => this.hideModal());
         document.getElementById('modal').addEventListener('click', (e) => {
             if (e.target === e.currentTarget) this.hideModal();
@@ -234,6 +247,115 @@ class ALRouter {
         this.renderOpenRouterConfig(data);
     }
 
+    async loadPlaygroundModels() {
+        const select = document.getElementById('playgroundModel');
+        select.innerHTML = '<option value="">Выберите модель...</option>';
+        (this.models || []).forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = `${m.id} (${m.provider})`;
+            select.appendChild(opt);
+        });
+    }
+
+    async playgroundSend() {
+        const input = document.getElementById('playgroundInput');
+        const model = document.getElementById('playgroundModel').value;
+        const temp = parseFloat(document.getElementById('playgroundTemp').value);
+        const maxTokens = parseInt(document.getElementById('playgroundMaxTokens').value);
+        const stream = document.getElementById('playgroundStream').checked;
+
+        if (!input.value.trim()) return;
+        if (!model) {
+            this.toast('Выберите модель', 'error');
+            return;
+        }
+
+        const userMsg = input.value.trim();
+        input.value = '';
+        this.playgroundAddMessage('user', userMsg);
+        const botMsgEl = this.playgroundAddMessage('assistant', '');
+        this.setPlaygroundLoading(true);
+
+        try {
+            const res = await fetch('/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify({
+                    model,
+                    messages: [{ role: 'user', content: userMsg }],
+                    temperature: temp,
+                    max_tokens: maxTokens,
+                    stream
+                })
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: 'Request failed' }));
+                throw new Error(err.error || `HTTP ${res.status}`);
+            }
+
+            if (stream) {
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') continue;
+                            try {
+                                const parsed = JSON.parse(data);
+                                const delta = parsed.choices?.[0]?.delta?.content || '';
+                                if (delta) botMsgEl.textContent += delta;
+                                botMsgEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                            } catch {}
+                        }
+                    }
+                }
+            } else {
+                const data = await res.json();
+                const content = data.choices?.[0]?.message?.content || '';
+                botMsgEl.textContent = content;
+            }
+        } catch (e) {
+            botMsgEl.textContent = 'Ошибка: ' + e.message;
+            botMsgEl.style.color = 'var(--danger)';
+        } finally {
+            this.setPlaygroundLoading(false);
+        }
+    }
+
+    playgroundAddMessage(role, content) {
+        const chat = document.getElementById('playgroundChat');
+        const div = document.createElement('div');
+        div.className = `playground-message ${role}`;
+        div.innerHTML = `<div class="playground-message-role">${role === 'user' ? 'Вы' : 'AI'}</div><div class="playground-message-content">${this.escapeHtml(content)}</div>`;
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+        return div.querySelector('.playground-message-content');
+    }
+
+    playgroundClear() {
+        document.getElementById('playgroundChat').innerHTML = '';
+    }
+
+    setPlaygroundLoading(loading) {
+        const btn = document.getElementById('playgroundSend');
+        const status = document.getElementById('playgroundStatus');
+        btn.disabled = loading;
+        btn.textContent = loading ? '⏳...' : 'Отправить';
+        status.textContent = loading ? 'Генерация...' : '';
+    }
+
     renderOpenRouterConfig(config) {
         const container = document.getElementById('openrouterFields');
         container.innerHTML = '';
@@ -367,6 +489,9 @@ class ALRouter {
         document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
         document.getElementById(`tab-${tab}`).classList.add('active');
         document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+        if (tab === 'playground') {
+            this.loadPlaygroundModels();
+        }
     }
 
     showAuthModal() {

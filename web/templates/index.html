@@ -19,6 +19,7 @@
                     <a href="#dashboard" class="nav-link active" data-tab="dashboard">Дашборд</a>
                     <a href="#providers" class="nav-link" data-tab="providers">Провайдеры</a>
                     <a href="#models" class="nav-link" data-tab="models">Модели</a>
+                    <a href="#playground" class="nav-link" data-tab="playground">Playground</a>
                     <a href="#openrouter" class="nav-link" data-tab="openrouter">OpenRouter</a>
                     <a href="#settings" class="nav-link" data-tab="settings">Настройки</a>
                 </nav>
@@ -140,6 +141,48 @@
                             <div class="step-content">
                                 <h3>Готово!</h3>
                                 <p>Теперь все ваши модели доступны в OpenRouter через единый ключ AL-Router.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="tab-playground" class="tab-content">
+                    <div class="page-header">
+                        <h1>Playground</h1>
+                        <p class="subtitle">Тестируйте модели прямо здесь</p>
+                    </div>
+                    <div class="playground">
+                        <div class="playground-sidebar">
+                            <div class="playground-model-select">
+                                <label>Модель</label>
+                                <select id="playgroundModel" class="form-input"></select>
+                            </div>
+                            <div class="playground-params">
+                                <label>Temperature</label>
+                                <input type="range" id="playgroundTemp" min="0" max="2" step="0.1" value="0.7" class="form-range">
+                                <span id="playgroundTempVal">0.7</span>
+                            </div>
+                            <div class="playground-params">
+                                <label>Max Tokens</label>
+                                <input type="number" id="playgroundMaxTokens" min="1" max="8192" value="2048" class="form-input">
+                            </div>
+                            <div class="playground-params">
+                                <label>Stream</label>
+                                <label class="toggle">
+                                    <input type="checkbox" id="playgroundStream" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="playground-main">
+                            <div class="playground-chat" id="playgroundChat"></div>
+                            <div class="playground-input-area">
+                                <textarea id="playgroundInput" placeholder="Напишите сообщение... (Shift+Enter для новой строки)" rows="3"></textarea>
+                                <div class="playground-input-actions">
+                                    <span id="playgroundStatus" class="playground-status"></span>
+                                    <button class="btn btn-primary" id="playgroundSend">Отправить</button>
+                                    <button class="btn btn-secondary" id="playgroundClear">Очистить</button>
+                                </div>
                             </div>
                         </div>
                     </div>

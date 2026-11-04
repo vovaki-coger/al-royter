@@ -866,3 +866,190 @@ body {
     flex-wrap: wrap;
     font-size: 0.8125rem;
 }
+
+.playground {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 24px;
+    height: calc(100vh - 200px);
+    min-height: 600px;
+}
+
+.playground-sidebar {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    height: fit-content;
+}
+
+.playground-sidebar label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.playground-sidebar .form-input,
+.playground-sidebar .form-range {
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.playground-params {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.playground-params .toggle {
+    position: relative;
+    width: 48px;
+    height: 28px;
+}
+
+.playground-params .toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.playground-params .toggle-slider {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--border);
+    border-radius: 28px;
+    transition: var(--transition);
+}
+
+.playground-params .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 22px; height: 22px;
+    left: 3px; top: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: var(--transition);
+}
+
+.playground-params .toggle input:checked + .toggle-slider {
+    background: var(--primary);
+}
+
+.playground-params .toggle input:checked + .toggle-slider::before {
+    transform: translateX(20px);
+}
+
+.playground-main {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.playground-chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.playground-message {
+    max-width: 85%;
+    animation: fadeIn 0.2s ease;
+}
+
+.playground-message.user {
+    align-self: flex-end;
+}
+
+.playground-message.assistant {
+    align-self: flex-start;
+}
+
+.playground-message-role {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.playground-message.user .playground-message-role {
+    text-align: right;
+}
+
+.playground-message-content {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.playground-message.user .playground-message-content {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--bg);
+}
+
+.playground-input-area {
+    border-top: 1px solid var(--border);
+    padding: 16px;
+    background: var(--bg-elevated);
+}
+
+.playground-input-area textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.9375rem;
+    resize: none;
+    min-height: 80px;
+    margin-bottom: 12px;
+}
+
+.playground-input-area textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.playground-input-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.playground-status {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+    .playground {
+        grid-template-columns: 1fr;
+    }
+    
+    .playground-sidebar {
+        order: 2;
+    }
+    
+    .playground-main {
+        order: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .playground {
+        height: auto;
+        min-height: 500px;
+    }
+}
