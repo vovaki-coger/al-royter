@@ -178,7 +178,7 @@ func (r *Router) register(c *gin.Context) {
 		return
 	}
 
-	if _, err := r.store.GetUserByEmail(req.Email); err == nil {
+	if existing, err := r.store.GetUserByEmail(req.Email); err == nil && existing != nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "Email already registered"})
 		return
 	}
